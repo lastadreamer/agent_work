@@ -33,7 +33,7 @@ function currentRole() {
 function render() {
   if (!state) return;
   const size = state.size;
-  boardEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  document.documentElement.style.setProperty("--n", String(size));
   boardEl.innerHTML = "";
   const last = state.last_move ? state.last_move.iccs : "";
   const legal = new Set(state.legal || []);

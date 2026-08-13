@@ -1,59 +1,141 @@
 :root {
-  --line: #6b4f2a;
   --wood: #d8b56a;
-  --ink: #1c140c;
+  --line: #6b4f2a;
+  --bg: #1c1612;
+  --panel: #2a221c;
+  --text: #f3e6d0;
+  --n: 15;
+  --cell: clamp(18px, min(calc((100dvh - 10rem) / var(--n)), calc((100vw - 36rem) / var(--n))), 52px);
 }
+
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
-  font-family: "Songti SC", "Noto Serif SC", serif;
-  color: var(--ink);
-  background: #f4efe4;
-}
-header { padding: 1rem 1.5rem 0; }
-h1 { margin: 0; font-size: 1.6rem; }
-.sub { margin: 0.3rem 0 0; color: #5c4a32; }
-main {
+  min-height: 100dvh;
   display: flex;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem 2rem;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  flex-direction: column;
+  font-family: "Noto Serif SC", "Songti SC", "Source Han Serif SC", serif;
+  background: var(--bg);
+  color: var(--text);
 }
-.status { margin-bottom: 0.6rem; font-weight: 600; }
+header {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 1rem 2.5rem 0;
+}
+h1 { margin: 0; font-size: 1.6rem; }
+.sub { margin: 0.3rem 0 0; opacity: 0.7; font-size: 0.9rem; }
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: 2.5rem;
+  align-items: start;
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 1rem 2.5rem 2rem;
+}
+.board-wrap {
+  justify-self: center;
+  width: max-content;
+  max-width: 100%;
+}
+.status {
+  min-height: 1.6rem;
+  margin-bottom: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
 .board {
   display: grid;
+  grid-template-columns: repeat(var(--n), var(--cell));
+  grid-template-rows: repeat(var(--n), var(--cell));
   background: var(--wood);
   border: 8px solid #8a6230;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .cell {
   position: relative;
-  aspect-ratio: 1;
-  min-width: 22px;
-  min-height: 22px;
+  width: var(--cell);
+  height: var(--cell);
 }
 .cell::before, .cell::after {
   content: "";
   position: absolute;
   background: var(--line);
+  pointer-events: none;
 }
 .cell::before { left: 0; right: 0; top: 50%; height: 1px; }
 .cell::after { top: 0; bottom: 0; left: 50%; width: 1px; }
-.cell.edge-n::before { top: 50%; }
 .stone {
   position: absolute;
-  inset: 12%;
+  inset: 14%;
   border-radius: 50%;
   z-index: 1;
 }
 .stone.black { background: radial-gradient(circle at 30% 30%, #555, #111); }
-.stone.white { background: radial-gradient(circle at 30% 30%, #fff, #c8c8c8); border: 1px solid #888; }
+.stone.white {
+  background: radial-gradient(circle at 30% 30%, #fff, #c8c8c8);
+  border: 1px solid #888;
+}
 .cell.legal { cursor: pointer; }
-.cell.legal:hover { background: rgba(0,0,0,0.08); }
+.cell.legal:hover { background: rgba(0, 0, 0, 0.08); }
 .cell.last .stone { outline: 2px solid #c0392b; outline-offset: 1px; }
-.panel { min-width: 260px; }
-label, button, input, select { display: block; width: 100%; margin: 0.35rem 0; }
+.panel {
+  width: 100%;
+  background: var(--panel);
+  padding: 1rem 1.2rem;
+  border-radius: 8px;
+  position: sticky;
+  top: 1rem;
+}
+.panel h2 { margin: 1rem 0 0.5rem; font-size: 1.1rem; }
+.panel h2:first-child { margin-top: 0; }
+label { display: block; margin: 0.45rem 0; font-size: 0.9rem; }
+input, select {
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #5a4a3a;
+  background: #1c1612;
+  color: var(--text);
+}
+button {
+  margin: 0.25rem 0;
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 4px;
+  background: #8b4513;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+button:hover { background: #a0522d; }
 .row { display: flex; gap: 0.4rem; }
-.row button { width: auto; flex: 1; }
-pre { white-space: pre-wrap; font-size: 0.85rem; }
+.row button { flex: 1; }
+.hint { font-size: 0.8rem; opacity: 0.7; line-height: 1.4; }
+#info {
+  white-space: pre-wrap;
+  font-size: 0.78rem;
+  background: #1c1612;
+  padding: 0.6rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+@media (max-width: 960px) {
+  main {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .panel {
+    max-width: 28rem;
+    position: static;
+  }
+  :root {
+    --cell: clamp(16px, calc((100vw - 3rem) / var(--n)), 40px);
+  }
+}
