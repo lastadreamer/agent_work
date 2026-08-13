@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61", "pybind11>=2.12", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xiangqi-engine"
+version = "0.1.0"
+description = "High-performance Xiangqi rules engine for AlphaZero-style self-play (phase 1)"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["python"]
