@@ -74,6 +74,42 @@ with ProcessPoolExecutor() as pool:
 
 不要在线程之间共享同一个 `Board`。以后自我对弈是「N 个 worker、N 棵搜索树、N 个棋盘」。
 
+## 阶段 2–4：编码 + 策略价值网络
+
+所有可调行为都在 **`config/default.json`**。改通道数、残差块数、历史长度、学习率、MCTS 模拟次数都只动这一份文件。`_` 开头的键是注释，加载时会丢掉。
+
+```python
+from xiangqi_engine import Board, Encoder, load_config
+from xiangqi_engine.network import build_network, infer
+
+cfg = load_config()          # 或 load_config("config/default.json")
+enc = Encoder(cfg)
+net = build_network(cfg)
+legal, probs, value = infer(net, enc, Board())
+```
+
+### 棋盘 → 输入
+
+张量是 `float32`，形状 `(C, 10, 9)`，通道优先。默认 `C = 15`：
+
+| 通道 | 含义 |
+| --- | --- |
+| 0–6 | 当前走方的 帅仕相马车炮兵 |
+| 7–13 | 对方的 7 类棋子 |
+| 14 | `halfmove / 120`（无进展计数，整盘常数平面） |
+
+`encode.perspective = current_player` 时，**黑方走则把棋盘转 180°**（格子 `sq' = 89 - sq`），所以网络永远看见「我在 rank 0」。价值头的 `v ∈ [-1, 1]` 也是**当前走方**的胜负期望，不是永远从红方看。
+
+`history_length > 1` 时，每个历史局面再叠 14 个棋子平面，全部按**现在**的走方当「我」。这和 AlphaZero 一致。
+
+### 输出 → 动作
+
+策略头输出 **8100** 维 logits：`index = from * 90 + to`，格子已经是网络坐标系（黑方走时已翻转）。非法着在 softmax 前 mask 掉。落子时用 `index_to_move(index, flip=黑方)` 变回引擎着法。
+
+价值头：`tanh`，标量 `v`。
+
+网络是论文里的双头残差塔：`Conv → N × ResBlock → {policy 1×1+FC, value 1×1+FC+tanh}`。块数和通道在 `network.*`。
+
 ## 下一步（还没做）
 
-等你点头后再做阶段 2：把 `Board` 编成神经网络输入张量（棋子平面）。
+阶段 5：MCTS（PUCT）。超参数已经写在 JSON 的 `mcts` 段，但代码还没有。

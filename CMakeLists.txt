@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_library(xiangqi_core STATIC src/board.cpp)
+add_library(xiangqi_core STATIC src/board.cpp src/encode.cpp)
 target_include_directories(xiangqi_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_options(xiangqi_core PRIVATE -O3 -DNDEBUG -Wall -Wextra -Wpedantic)
 

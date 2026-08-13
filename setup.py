@@ -3,7 +3,7 @@ from setuptools import setup
 
 ext = Pybind11Extension(
     "xiangqi_engine._xiangqi",
-    ["src/board.cpp", "src/bindings.cpp"],
+    ["src/board.cpp", "src/encode.cpp", "src/bindings.cpp"],
     include_dirs=["include"],
     cxx_std=17,
     extra_compile_args=["-O3", "-DNDEBUG", "-fvisibility=hidden"],

@@ -1,0 +1,106 @@
+{
+  "_doc": "Single control file for the AlphaZero Xiangqi agent. Keys starting with _ are documentation and are stripped on load. Override with XIANGQI_CONFIG or load_config(path).",
+
+  "seed": 42,
+  "device": "auto",
+
+  "paths": {
+    "_doc": "Relative to the process working directory.",
+    "checkpoint_dir": "checkpoints",
+    "replay_dir": "data/replay",
+    "log_dir": "logs",
+    "best_checkpoint": "checkpoints/best.pt"
+  },
+
+  "board": {
+    "ranks": 10,
+    "files": 9,
+    "n_squares": 90
+  },
+
+  "encode": {
+    "_doc": "Input tensor is float32 CHW (C, 10, 9). C = history_length * (7*our + 7*opp) + extras. perspective_current_player rotates the board 180° when Black to move so the side to act always sits on rank 0; value v is that side's expected outcome in [-1, 1].",
+    "perspective": "current_player",
+    "history_length": 1,
+    "planes": {
+      "our_pieces": true,
+      "opp_pieces": true,
+      "side_to_move": false,
+      "halfmove": true,
+      "fullmove": false,
+      "ones": false
+    },
+    "halfmove_scale": 120,
+    "fullmove_scale": 400
+  },
+
+  "action": {
+    "_doc": "from_to: index = from_sq * 90 + to_sq in network coordinates (already flipped if Black to move). Illegal slots are masked before softmax. size must stay 8100 for this encoding.",
+    "encoding": "from_to",
+    "size": 8100
+  },
+
+  "network": {
+    "_doc": "AlphaZero dual-head residual tower. Policy logits have size action.size. Value is tanh in [-1, 1] for the current player.",
+    "blocks": 6,
+    "channels": 128,
+    "policy_head_channels": 32,
+    "value_head_channels": 32,
+    "value_hidden": 256
+  },
+
+  "mcts": {
+    "_doc": "Used from phase 5. PUCT: Q + c_puct * P * sqrt(N) / (1+n). Dirichlet noise is added at the root.",
+    "simulations": 400,
+    "c_puct": 1.5,
+    "dirichlet_alpha": 0.3,
+    "dirichlet_epsilon": 0.25,
+    "temperature": 1.0,
+    "temperature_moves": 16,
+    "max_game_plies": 400
+  },
+
+  "selfplay": {
+    "_doc": "One iteration generates n_games_per_iter games, each on its own Board.",
+    "n_games_per_iter": 64,
+    "n_workers": 4,
+    "max_plies": 400
+  },
+
+  "replay": {
+    "capacity": 100000,
+    "min_size": 2048
+  },
+
+  "train": {
+    "_doc": "Loss = policy_loss_weight * CE(π, p) + value_loss_weight * (z - v)^2 + weight_decay. Paper used SGD; adam is the default here because it is stabler at small batch size.",
+    "optimizer": "adam",
+    "lr": 0.001,
+    "momentum": 0.9,
+    "weight_decay": 0.0001,
+    "batch_size": 256,
+    "epochs_per_iter": 1,
+    "batches_per_iter": 400,
+    "value_loss_weight": 1.0,
+    "policy_loss_weight": 1.0,
+    "grad_clip": 1.0,
+    "lr_schedule": "constant"
+  },
+
+  "eval": {
+    "n_games": 20,
+    "mcts_simulations": 200,
+    "win_rate_threshold": 0.55
+  },
+
+  "loop": {
+    "n_iterations": 100
+  },
+
+  "rules": {
+    "_doc": "Must stay in sync with the C++ engine. repetition_draw_count 3 and no_progress_halfmoves 120 are the current simplified draw rules.",
+    "repetition_draw_count": 3,
+    "no_progress_halfmoves": 120,
+    "stalemate_is_loss": true
+  }
+}

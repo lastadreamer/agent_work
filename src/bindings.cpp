@@ -1,4 +1,5 @@
 #include "xiangqi/board.hpp"
+#include "xiangqi/encode.hpp"
 
 #include <cstring>
 #include <stdexcept>
@@ -6,11 +7,13 @@
 #include <utility>
 #include <vector>
 
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
 using xiangqi::Board;
+using xiangqi::EncodeSpec;
 using xiangqi::Move;
 using xiangqi::MoveList;
 using xiangqi::Outcome;
@@ -216,4 +219,50 @@ PYBIND11_MODULE(_xiangqi, m) {
         .def_readonly("black_wins", &RandomPlayResult::black_wins)
         .def_readonly("draws", &RandomPlayResult::draws)
         .def_readonly("plies", &RandomPlayResult::plies);
+
+    m.attr("N_RANKS") = xiangqi::N_RANKS;
+    m.attr("N_FILES") = xiangqi::N_FILES;
+    m.attr("N_PIECE_TYPES") = xiangqi::N_PIECE_TYPES;
+    m.attr("ACTION_FROM_TO") = xiangqi::ACTION_FROM_TO;
+
+    py::class_<EncodeSpec>(m, "EncodeSpec")
+        .def(py::init<>())
+        .def_readwrite("perspective_current_player", &EncodeSpec::perspective_current_player)
+        .def_readwrite("our_pieces", &EncodeSpec::our_pieces)
+        .def_readwrite("opp_pieces", &EncodeSpec::opp_pieces)
+        .def_readwrite("side_to_move", &EncodeSpec::side_to_move)
+        .def_readwrite("halfmove", &EncodeSpec::halfmove)
+        .def_readwrite("fullmove", &EncodeSpec::fullmove)
+        .def_readwrite("ones", &EncodeSpec::ones)
+        .def_readwrite("halfmove_scale", &EncodeSpec::halfmove_scale)
+        .def_readwrite("fullmove_scale", &EncodeSpec::fullmove_scale)
+        .def_readwrite("history_length", &EncodeSpec::history_length);
+
+    m.def("n_input_planes", &xiangqi::n_input_planes);
+    m.def("should_flip", &xiangqi::should_flip);
+    m.def("flip_square", &xiangqi::flip_square);
+    m.def("move_to_index", &xiangqi::move_to_index, py::arg("move"), py::arg("flip") = false);
+    m.def("index_to_move", &xiangqi::index_to_move, py::arg("index"), py::arg("flip") = false);
+
+    m.def(
+        "encode_state",
+        [](const Board& current, const EncodeSpec& spec, const std::vector<Board>& history) {
+            const int c = xiangqi::n_input_planes(spec);
+            py::array_t<float> arr({c, xiangqi::N_RANKS, xiangqi::N_FILES});
+            xiangqi::encode_state(current, history.empty() ? nullptr : history.data(),
+                                  static_cast<int>(history.size()), spec, arr.mutable_data());
+            return arr;
+        },
+        py::arg("current"), py::arg("spec"), py::arg("history") = std::vector<Board>{});
+
+    m.def(
+        "legal_indices",
+        [](Board& current, const EncodeSpec& spec) {
+            int tmp[xiangqi::MAX_MOVES];
+            const int n = xiangqi::legal_indices(current, spec, tmp);
+            py::list out;
+            for (int i = 0; i < n; ++i) out.append(tmp[i]);
+            return out;
+        },
+        py::arg("current"), py::arg("spec"));
 }

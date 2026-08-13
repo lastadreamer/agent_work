@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xiangqi-engine"
-version = "0.1.0"
-description = "High-performance Xiangqi rules engine for AlphaZero-style self-play (phase 1)"
+version = "0.2.0"
+description = "High-performance Xiangqi engine and AlphaZero policy-value network"
 readme = "README.md"
 requires-python = ">=3.9"
+dependencies = ["numpy"]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "torch", "numpy"]
+train = ["torch", "numpy"]
 
 [tool.setuptools]
 package-dir = {"" = "python"}
