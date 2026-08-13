@@ -3,4 +3,5 @@ include src/*.cpp
 include CMakeLists.txt
 include README.md
 include config/default.json
+include config/smoke.json
 recursive-include tests *.py

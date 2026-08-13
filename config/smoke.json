@@ -1,0 +1,76 @@
+{
+  "_doc": "Tiny loop for a sanity run: python -m xiangqi_engine.loop --config config/smoke.json",
+  "seed": 1,
+  "device": "cpu",
+  "paths": {
+    "checkpoint_dir": "checkpoints/smoke",
+    "replay_dir": "data/replay",
+    "log_dir": "logs/smoke",
+    "best_checkpoint": "checkpoints/smoke/best.pt"
+  },
+  "board": { "ranks": 10, "files": 9, "n_squares": 90 },
+  "encode": {
+    "perspective": "current_player",
+    "history_length": 1,
+    "planes": {
+      "our_pieces": true,
+      "opp_pieces": true,
+      "side_to_move": false,
+      "halfmove": true,
+      "fullmove": false,
+      "ones": false
+    },
+    "halfmove_scale": 120,
+    "fullmove_scale": 400
+  },
+  "action": { "encoding": "from_to", "size": 8100 },
+  "network": {
+    "blocks": 1,
+    "channels": 16,
+    "policy_head_channels": 4,
+    "value_head_channels": 4,
+    "value_hidden": 32
+  },
+  "mcts": {
+    "simulations": 8,
+    "c_puct": 1.5,
+    "c_puct_base": 0,
+    "c_puct_init": 1.25,
+    "dirichlet_alpha": 0.3,
+    "dirichlet_epsilon": 0.25,
+    "add_dirichlet_noise": true,
+    "temperature": 1.0,
+    "temperature_moves": 8,
+    "max_game_plies": 80
+  },
+  "selfplay": {
+    "n_games_per_iter": 2,
+    "n_workers": 1,
+    "max_plies": 40
+  },
+  "replay": { "capacity": 4096, "min_size": 8 },
+  "train": {
+    "optimizer": "adam",
+    "lr": 0.01,
+    "momentum": 0.9,
+    "weight_decay": 0.0001,
+    "batch_size": 16,
+    "epochs_per_iter": 1,
+    "batches_per_iter": 4,
+    "value_loss_weight": 1.0,
+    "policy_loss_weight": 1.0,
+    "grad_clip": 1.0,
+    "lr_schedule": "constant"
+  },
+  "eval": {
+    "n_games": 2,
+    "mcts_simulations": 4,
+    "win_rate_threshold": 0.55
+  },
+  "loop": { "n_iterations": 1, "save_every": 1, "eval_every": 1 },
+  "rules": {
+    "repetition_draw_count": 3,
+    "no_progress_halfmoves": 120,
+    "stalemate_is_loss": true
+  }
+}

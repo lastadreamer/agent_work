@@ -11,3 +11,6 @@ cmake-build-*/
 *.a
 .venv/
 venv/
+checkpoints/
+data/
+logs/

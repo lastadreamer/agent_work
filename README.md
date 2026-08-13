@@ -132,6 +132,34 @@ board.push(result.move)
 
 超参数在 JSON 的 `mcts` 段：`simulations`、`c_puct`、`dirichlet_*`、`temperature`。
 
-## 下一步（还没做）
+## 阶段 6–8：自我对弈、训练、评估闭环
 
-阶段 6–7：自我对弈采样 + 用 \((s,\pi,z)\) 训练。
+一盘自我对弈在每个决策点存 \((s, \pi)\)，终局得到 \(z\in\{+1,0,-1\}\)（**当前走方**视角：红胜则红方局面 \(z=+1\)、黑方局面 \(z=-1\)）。回放池按 `replay.capacity` 环形保存；\(\pi\) 只存合法着上的质量。
+
+训练一步：
+
+\[
+L = w_p\,\mathrm{CE}(\pi, p) + w_v\,(z-v)^2
+\]
+
+权重衰减在优化器里。评估时不开 Dirichlet、温度 0；挑战者得分（胜=1、和=0.5）达到 `eval.win_rate_threshold` 就晋升为 best。
+
+```bash
+# 完整超参数：config/default.json
+# 冒烟（小网络、少模拟）：
+python -m xiangqi_engine.loop --config config/smoke.json
+```
+
+```python
+from xiangqi_engine.selfplay import play_game
+from xiangqi_engine.replay import ReplayBuffer
+from xiangqi_engine.train import train_batches
+
+rec = play_game(cfg, evaluator, encoder, seed=0)
+buffer.extend(rec.samples)
+train_batches(net, buffer, cfg)
+```
+
+多进程采样：`selfplay.n_workers > 1` 时每个进程自己的 `Board` / 编码器 / 搜索树，网络用 CPU `state_dict` 拷贝。不要在进程间共享一块棋盘。
+
+所有旋钮仍在 JSON：`selfplay`、`replay`、`train`、`eval`、`loop`。

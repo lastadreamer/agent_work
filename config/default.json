@@ -97,7 +97,9 @@
   },
 
   "loop": {
-    "n_iterations": 100
+    "n_iterations": 100,
+    "save_every": 1,
+    "eval_every": 1
   },
 
   "rules": {
