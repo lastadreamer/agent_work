@@ -115,6 +115,11 @@ def run_iteration(
 ) -> dict:
     t0 = time.time()
     n_workers = int(cfg["selfplay"]["n_workers"])
+    print(
+        f"iter {iteration}: self-play "
+        f"{cfg['selfplay']['n_games_per_iter']} games, {n_workers} workers",
+        flush=True,
+    )
     if n_workers > 1:
         games = play_games(
             cfg,
@@ -154,6 +159,7 @@ def run_iteration(
 
     if buffer.ready():
         t1 = time.time()
+        print(f"iter {iteration}: train buffer={len(buffer)}", flush=True)
         metrics["train"] = train_batches(
             net,
             buffer,
@@ -170,6 +176,7 @@ def run_iteration(
     promoted = False
     if metrics["train"] is not None and eval_every > 0 and iteration % eval_every == 0:
         t2 = time.time()
+        print(f"iter {iteration}: eval {cfg['eval']['n_games']} games", flush=True)
         enc = Encoder(cfg)
         chal = NetworkEvaluator(net, enc, device=device)
         hold = NetworkEvaluator(best, enc, device=device)
@@ -202,10 +209,20 @@ def _try_load_replay(buffer: ReplayBuffer, resume: str | Path, cfg: Cfg) -> Path
 
 
 def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
-    from xiangqi_engine.network import PolicyValueNet
-
     cfg = cfg if cfg is not None else load_config()
     device = resolve_device(cfg)
+    n_iters = int(cfg["loop"]["n_iterations"])
+    print(
+        f"loop start device={device} "
+        f"net={cfg['network']['blocks']}x{cfg['network']['channels']} "
+        f"selfplay={cfg['selfplay']['n_games_per_iter']} games "
+        f"x {cfg['selfplay']['n_workers']} workers "
+        f"sims={cfg['mcts']['simulations']} "
+        f"iters={n_iters}",
+        flush=True,
+    )
+    from xiangqi_engine.network import PolicyValueNet
+
     net = PolicyValueNet(cfg).to(device)
     best = PolicyValueNet(cfg).to(device)
     optimizer = build_optimizer(net, cfg)
@@ -229,7 +246,6 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
     log_path = log_dir / "train.jsonl"
     latest = latest_checkpoint_path(cfg)
     history = []
-    n_iters = int(cfg["loop"]["n_iterations"])
     save_every = int(cfg["loop"].get("save_every", 1))
 
     for i in range(start_iter + 1, start_iter + n_iters + 1):

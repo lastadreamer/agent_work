@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 
@@ -103,19 +103,35 @@ def play_games(
     if n_workers <= 1:
         enc = Encoder(cfg)
         ev = evaluator if evaluator is not None else UniformEvaluator(enc)
-        return [play_game(cfg, ev, Encoder(cfg), s, simulations) for s in seeds]
+        games = []
+        for i, s in enumerate(seeds, start=1):
+            games.append(play_game(cfg, ev, Encoder(cfg), s, simulations))
+            _log_selfplay_progress(i, n_games)
+        return games
 
     cfg_dict = dict(cfg)
     # spawn: parent may already have imported torch; fork+threads is unsafe.
     ctx = mp.get_context("spawn")
     counter = ctx.Value("i", 0)
+    print(f"self-play: spawning {n_workers} workers (first game may take a while)", flush=True)
     with ProcessPoolExecutor(
         max_workers=n_workers,
         mp_context=ctx,
         initializer=_init_worker,
         initargs=(cfg_dict, state_dict, simulations, counter),
     ) as pool:
-        return list(pool.map(_play_worker, seeds))
+        futures = [pool.submit(_play_worker, s) for s in seeds]
+        games = []
+        for fut in as_completed(futures):
+            games.append(fut.result())
+            _log_selfplay_progress(len(games), n_games)
+        return games
+
+
+def _log_selfplay_progress(done: int, n_games: int) -> None:
+    step = max(1, n_games // 8)
+    if done == 1 or done == n_games or done % step == 0:
+        print(f"self-play: {done}/{n_games} games", flush=True)
 
 
 _WORKER: dict = {}
