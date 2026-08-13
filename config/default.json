@@ -1,8 +1,8 @@
 {
-  "_doc": "Single control file for the AlphaZero Xiangqi agent. Keys starting with _ are documentation and are stripped on load. Override with XIANGQI_CONFIG or load_config(path).",
+  "_doc": "Training profile for a 4× NVIDIA H200 box (141GB each). The loop trains on one GPU (device). Self-play workers spread inference across selfplay.gpus cards. Current nvidia-smi on that machine often shows 110GB+ already used: free the cards first, or set CUDA_VISIBLE_DEVICES and lower selfplay.gpus. Keys starting with _ are documentation and are stripped on load.",
 
   "seed": 42,
-  "device": "auto",
+  "device": "cuda",
 
   "paths": {
     "_doc": "Relative to the process working directory.",
@@ -42,17 +42,17 @@
   },
 
   "network": {
-    "_doc": "AlphaZero dual-head residual tower. Policy logits have size action.size. Value is tanh in [-1, 1] for the current player.",
-    "blocks": 6,
-    "channels": 128,
+    "_doc": "AlphaZero dual-head residual tower, chess-paper size (20×256). A 10×9 board plus this tower is tiny on H200; the limit is self-play MCTS, not VRAM.",
+    "blocks": 20,
+    "channels": 256,
     "policy_head_channels": 32,
     "value_head_channels": 32,
     "value_hidden": 256
   },
 
   "mcts": {
-    "_doc": "PUCT: Q + c_puct * P * sqrt(N) / (1+n). If c_puct_base>0, c_puct grows like the AlphaZero appendix. Dirichlet noise is added at the root during self-play (add_dirichlet_noise). Evaluation games should pass add_noise=False. reuse_tree keeps the played-move subtree inside one game; trees are still discarded between games and are not written into training checkpoints.",
-    "simulations": 400,
+    "_doc": "800 simulations matches the AlphaZero chess/shogi setting. reuse_tree keeps the played-move subtree inside one game. Trees are not written into training checkpoints.",
+    "simulations": 800,
     "c_puct": 1.5,
     "c_puct_base": 0,
     "c_puct_init": 1.25,
@@ -66,26 +66,29 @@
   },
 
   "selfplay": {
-    "_doc": "One iteration generates n_games_per_iter games, each on its own Board.",
-    "n_games_per_iter": 64,
-    "n_workers": 4,
-    "max_plies": 400
+    "_doc": "256 games / 32 workers ≈ 8 processes per H200. Each worker loads its own net. device=cuda spreads workers with cuda:(id % gpus). If cards are busy, set gpus to the number of free cards or CUDA_VISIBLE_DEVICES. Inference is still one position at a time, so many workers matter more than a huge batch.",
+    "n_games_per_iter": 256,
+    "n_workers": 32,
+    "max_plies": 400,
+    "device": "cuda",
+    "gpus": 4
   },
 
   "replay": {
-    "capacity": 100000,
-    "min_size": 2048
+    "_doc": "500k positions ≈ a few GB of RAM. min_size waits until the first iteration has enough games to train.",
+    "capacity": 500000,
+    "min_size": 16384
   },
 
   "train": {
-    "_doc": "Loss = policy_loss_weight * CE(π, p) + value_loss_weight * (z - v)^2 + weight_decay. Paper used SGD; adam is the default here because it is stabler at small batch size.",
+    "_doc": "One H200 can hold a much larger batch than 4096; this size is already plenty for a 20×256 tower on 10×9. Adam stays the default because it is stabler before the replay pool is huge.",
     "optimizer": "adam",
     "lr": 0.001,
     "momentum": 0.9,
     "weight_decay": 0.0001,
-    "batch_size": 256,
+    "batch_size": 4096,
     "epochs_per_iter": 1,
-    "batches_per_iter": 400,
+    "batches_per_iter": 1000,
     "value_loss_weight": 1.0,
     "policy_loss_weight": 1.0,
     "grad_clip": 1.0,
@@ -93,22 +96,23 @@
   },
 
   "eval": {
+    "_doc": "Eval is sequential on the training GPU. Keep n_games modest and eval_every > 1 so it does not dominate wall time.",
     "n_games": 20,
-    "mcts_simulations": 200,
+    "mcts_simulations": 400,
     "win_rate_threshold": 0.55
   },
 
   "loop": {
-    "n_iterations": 100,
+    "n_iterations": 200,
     "save_every": 1,
-    "eval_every": 1
+    "eval_every": 2
   },
 
   "play": {
-    "_doc": "Local visualization UI only (python -m xiangqi_engine.play). Does not affect self-play, training, or MCTS defaults used by the loop.",
+    "_doc": "Local visualization UI only. Does not affect self-play or the training loop.",
     "host": "127.0.0.1",
     "port": 8765,
-    "simulations": 80,
+    "simulations": 400,
     "checkpoint": "",
     "red": "human",
     "black": "ai"

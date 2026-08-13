@@ -79,7 +79,14 @@ xiangqi-train --checkpoint checkpoints/iter_0005.pt --iterations 20
 
 **一盘棋里**（自我对弈、评估、网页对弈）共用一棵树：走出一步后降到该着的子节点，悔棋回到父节点再搜（`mcts.reuse_tree`，默认开）。**不会**把树写进训练快照。换一盘棋、或网络已经更新之后，旧树的统计量对不上新局面/新先验，存下来没有用。只拿到旧的 `best.pt`（没有 sidecar 回放、没有优化器）也能接着训，但回放池是空的、优化器会重开。
 
-`default.json` 按「能认真训」给的：每轮 64 盘、每步 400 次模拟、6×128 网络。机器吃不消就先改小 `selfplay.n_games_per_iter`、`mcts.simulations`、`network.blocks` / `channels`，或继续用 `smoke.json` 当模板另存一份。
+`default.json` 按 **4×H200** 写的：20×256 网络、每步 800 次模拟、每轮 256 盘 / 32 个 worker（推理摊到 `selfplay.gpus` 张卡）、训练 batch 4096。梯度更新只占一张卡；自我对弈才是瓶颈。你贴的 `nvidia-smi` 里四张卡已经各占 110GB+，先空出卡再训，或：
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1 xiangqi-train
+# 同时把 config 里 selfplay.gpus 改成实际空闲张数
+```
+
+机器吃不消就改小 `selfplay.n_games_per_iter`、`n_workers`、`mcts.simulations`，或先跑 `config/smoke.json`。
 
 没有训过的网络加上很少的模拟，棋力接近乱走，这是预期现象。
 

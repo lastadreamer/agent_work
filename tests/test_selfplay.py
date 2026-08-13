@@ -4,7 +4,7 @@ from xiangqi_engine import ACTION_FROM_TO, Encoder, load_config
 from xiangqi_engine.config import deepcopy_config
 from xiangqi_engine.mcts import UniformEvaluator
 from xiangqi_engine.replay import ReplayBuffer, sample_from_dense
-from xiangqi_engine.selfplay import GameRecord, play_game, play_games
+from xiangqi_engine.selfplay import GameRecord, play_game, play_games, selfplay_worker_device
 
 
 def _fast_cfg():
@@ -57,6 +57,17 @@ def test_sample_from_dense_keeps_mass():
     s = sample_from_dense(state, pi, 1.0)
     assert list(s.policy_index) == [10, 11]
     assert abs(float(s.policy_prob.sum()) - 1.0) < 1e-6
+
+
+def test_selfplay_worker_device_falls_back_without_cuda():
+    cfg = _fast_cfg()
+    cfg["selfplay"]["device"] = "cpu"
+    assert selfplay_worker_device(cfg, 0) == "cpu"
+    cfg["selfplay"]["device"] = "cuda"
+    cfg["selfplay"]["gpus"] = 4
+    # No GPU in this environment → cpu; with CUDA it would be cuda:(id % n).
+    dev = selfplay_worker_device(cfg, 5)
+    assert dev == "cpu" or dev.startswith("cuda:")
 
 
 def test_replay_buffer_save_load(tmp_path):
