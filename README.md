@@ -12,7 +12,12 @@
 
 ## 环境配置
 
-开发和测试训练是**同一套环境**：C++ 引擎、PyTorch、pytest 都在 `pyproject.toml` 里，用 `uv.lock` 对齐版本。Mac 上跑单测 / 冒烟，H200 上正式训练，都 `uv sync`。
+两套 extra，用 `uv.lock` 对齐版本。核心引擎（numpy + C++ 扩展）始终安装；PyTorch / pytest 按用途选：
+
+| extra | 给谁用 | 能做什么 |
+| --- | --- | --- |
+| **`test`** | Mac / 本机 | 单测、CPU 冒烟、网页对弈、加载 `best.pt` 人机/机机 |
+| **`train`** | H200 等训练机 | 上面这些，再加上按 `default.json` 正式自我对弈训练 |
 
 需要：
 
@@ -22,29 +27,36 @@
 - Debian/Ubuntu 还要 `python3-dev`
 
 ```bash
-# 安装 uv（任选一种）
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
 git clone https://github.com/lastadreamer/agent_work.git
 cd agent_work
-
-# 按 lockfile 建 .venv，并编译本仓库的 C++ 扩展（可编辑安装）
-# Linux 上若默认 c++ 是 clang++ 且链不上 libstdc++：
-CXX=g++ uv sync
-# macOS：
-# uv sync
-
-uv run pytest -q                              # 单测，CPU 即可
-uv run xiangqi-train --config config/smoke.json   # 冒烟训练，同样走 CPU
 ```
 
-`uv sync` 之后也可以 `source .venv/bin/activate`，然后直接用 `pytest`、`xiangqi-train`、`xiangqi-play`。改过 `pyproject.toml` 后重新 `uv lock` 再提交 `uv.lock`。
+**本机 / Mac（test）**
 
-没有 uv 时的等价安装（版本不会和 lockfile 逐字对齐）：
+```bash
+uv sync --extra test
+# Linux 若 clang++ 链不上 libstdc++：CXX=g++ uv sync --extra test
+
+uv run pytest -q
+uv run xiangqi-train --config config/smoke.json
+uv run xiangqi-play --checkpoint checkpoints/best.pt
+```
+
+**训练机（train）**
+
+```bash
+CXX=g++ uv sync --extra train
+uv run xiangqi-train
+```
+
+`uv sync` 之后也可以 `source .venv/bin/activate`，直接用 `pytest`、`xiangqi-train`、`xiangqi-play`。改过 `pyproject.toml` 后重新 `uv lock`，把 `uv.lock` 一并提交。
+
+没有 uv 时：
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-CXX=g++ pip install -e .
+pip install -e ".[test]"    # 或 ".[train]"
 ```
 
 可选：单独编一个 C++ perft，用来对照 [Chess Programming Wiki](https://www.chessprogramming.org/Chinese_Chess) 的节点数。

@@ -844,6 +844,14 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "torch" },
+]
+train = [
     { name = "pytest" },
     { name = "torch" },
 ]
@@ -851,6 +859,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "torch", specifier = ">=2.2" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
+    { name = "pytest", marker = "extra == 'train'", specifier = ">=8.0" },
+    { name = "torch", marker = "extra == 'test'", specifier = ">=2.2" },
+    { name = "torch", marker = "extra == 'train'", specifier = ">=2.2" },
 ]
+provides-extras = ["test", "train"]
