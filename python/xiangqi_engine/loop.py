@@ -17,6 +17,7 @@ from xiangqi_engine.config import Cfg, deepcopy_config, load_config, resolve_dev
 from xiangqi_engine.encode import Encoder
 from xiangqi_engine.evaluate import play_match
 from xiangqi_engine.mcts import NetworkEvaluator
+from xiangqi_engine.progress import eta_seconds, finish_clock, format_hms
 from xiangqi_engine.replay import ReplayBuffer
 from xiangqi_engine.selfplay import play_games
 from xiangqi_engine.train import build_optimizer, train_batches
@@ -116,8 +117,9 @@ def run_iteration(
     t0 = time.time()
     n_workers = int(cfg["selfplay"]["n_workers"])
     print(
-        f"iter {iteration}: self-play "
-        f"{cfg['selfplay']['n_games_per_iter']} games, {n_workers} workers",
+        f"iter {iteration}: self-play starting "
+        f"{cfg['selfplay']['n_games_per_iter']} games × {n_workers} workers "
+        f"× {cfg['mcts']['simulations']} sims",
         flush=True,
     )
     if n_workers > 1:
@@ -159,7 +161,11 @@ def run_iteration(
 
     if buffer.ready():
         t1 = time.time()
-        print(f"iter {iteration}: train buffer={len(buffer)}", flush=True)
+        print(
+            f"iter {iteration}: train starting "
+            f"buffer={len(buffer)} batches={cfg['train']['batches_per_iter']}",
+            flush=True,
+        )
         metrics["train"] = train_batches(
             net,
             buffer,
@@ -176,7 +182,11 @@ def run_iteration(
     promoted = False
     if metrics["train"] is not None and eval_every > 0 and iteration % eval_every == 0:
         t2 = time.time()
-        print(f"iter {iteration}: eval {cfg['eval']['n_games']} games", flush=True)
+        print(
+            f"iter {iteration}: eval starting {cfg['eval']['n_games']} games "
+            f"× {cfg['eval']['mcts_simulations']} sims",
+            flush=True,
+        )
         enc = Encoder(cfg)
         chal = NetworkEvaluator(net, enc, device=device)
         hold = NetworkEvaluator(best, enc, device=device)
@@ -247,13 +257,33 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
     latest = latest_checkpoint_path(cfg)
     history = []
     save_every = int(cfg["loop"].get("save_every", 1))
+    end_iter = start_iter + n_iters
+    loop_t0 = time.time()
 
-    for i in range(start_iter + 1, start_iter + n_iters + 1):
+    for i in range(start_iter + 1, end_iter + 1):
+        done_before = i - start_iter - 1
+        if done_before > 0:
+            avg = (time.time() - loop_t0) / done_before
+            left = end_iter - i + 1
+            eta = avg * left
+            print(
+                f"iter {i}/{end_iter} starting | "
+                f"avg {format_hms(avg)}/iter | "
+                f"remaining {left} iters ≈ {format_hms(eta)} "
+                f"(finish {finish_clock(eta)})",
+                flush=True,
+            )
+        else:
+            print(
+                f"iter {i}/{end_iter} starting "
+                f"(ETA after the first finished self-play game)",
+                flush=True,
+            )
         metrics = run_iteration(cfg, net, best, buffer, i, device, optimizer=optimizer)
         history.append(metrics)
         with log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(metrics) + "\n")
-        print(metrics, flush=True)
+        _print_iter_summary(metrics, start_iter, end_iter, loop_t0)
         if save_every > 0 and i % save_every == 0:
             extra = {"metrics": metrics}
             save_training_checkpoint(
@@ -278,6 +308,45 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
             )
             save_checkpoint(paths["best_checkpoint"], best, cfg, i)
     return history
+
+
+def _print_iter_summary(
+    metrics: dict,
+    start_iter: int,
+    end_iter: int,
+    loop_t0: float,
+) -> None:
+    i = int(metrics["iteration"])
+    done = i - start_iter
+    left = end_iter - i
+    elapsed = time.time() - loop_t0
+    eta = eta_seconds(done, done + left, elapsed)
+    sp = metrics.get("selfplay") or {}
+    train = metrics.get("train") or {}
+    ev = metrics.get("eval")
+    parts = [
+        f"iter {i}/{end_iter} finished in {format_hms(metrics.get('sec'))}",
+        f"selfplay {format_hms(metrics.get('selfplay_sec'))} "
+        f"R{sp.get('red', 0)} B{sp.get('black', 0)} D{sp.get('draw', 0)}",
+    ]
+    if train:
+        parts.append(
+            f"train {format_hms(metrics.get('train_sec'))} "
+            f"loss={train.get('loss', 0):.3f}"
+        )
+    if ev is not None:
+        parts.append(
+            f"eval {format_hms(metrics.get('eval_sec'))} "
+            f"wr={ev.get('win_rate', 0):.2f}"
+        )
+    if metrics.get("promoted"):
+        parts.append("promoted")
+    parts.append(f"job elapsed {format_hms(elapsed)}")
+    if left > 0:
+        parts.append(f"remaining {left} iters ≈ {format_hms(eta)} (finish {finish_clock(eta)})")
+    else:
+        parts.append("loop done")
+    print(" | ".join(parts), flush=True)
 
 
 def main(argv: list[str] | None = None) -> None:

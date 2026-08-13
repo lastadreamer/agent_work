@@ -13,6 +13,7 @@ from xiangqi_engine._xiangqi import BLACK, RED, Board, Outcome
 from xiangqi_engine.config import Cfg, load_config
 from xiangqi_engine.encode import Encoder
 from xiangqi_engine.mcts import MCTS, UniformEvaluator, terminal_value
+from xiangqi_engine.progress import Progress
 from xiangqi_engine.replay import Sample, sample_from_dense
 
 
@@ -100,20 +101,28 @@ def play_games(
     n_games = int(cfg["selfplay"]["n_games_per_iter"] if n_games is None else n_games)
     n_workers = int(cfg["selfplay"]["n_workers"] if n_workers is None else n_workers)
     seeds = [seed + i for i in range(n_games)]
+    progress = Progress("self-play", n_games)
     if n_workers <= 1:
         enc = Encoder(cfg)
         ev = evaluator if evaluator is not None else UniformEvaluator(enc)
         games = []
+        plies = 0
         for i, s in enumerate(seeds, start=1):
-            games.append(play_game(cfg, ev, Encoder(cfg), s, simulations))
-            _log_selfplay_progress(i, n_games)
+            rec = play_game(cfg, ev, Encoder(cfg), s, simulations)
+            games.append(rec)
+            plies += rec.plies
+            progress.update(i, extra=f"avg {plies / i:.0f} plies/game")
         return games
 
     cfg_dict = dict(cfg)
     # spawn: parent may already have imported torch; fork+threads is unsafe.
     ctx = mp.get_context("spawn")
     counter = ctx.Value("i", 0)
-    print(f"self-play: spawning {n_workers} workers (first game may take a while)", flush=True)
+    print(
+        f"self-play: spawning {n_workers} workers "
+        f"(first finished game is the ETA baseline; spawn can take a few minutes)",
+        flush=True,
+    )
     with ProcessPoolExecutor(
         max_workers=n_workers,
         mp_context=ctx,
@@ -122,16 +131,14 @@ def play_games(
     ) as pool:
         futures = [pool.submit(_play_worker, s) for s in seeds]
         games = []
+        plies = 0
         for fut in as_completed(futures):
-            games.append(fut.result())
-            _log_selfplay_progress(len(games), n_games)
+            rec = fut.result()
+            games.append(rec)
+            plies += rec.plies
+            n = len(games)
+            progress.update(n, extra=f"avg {plies / n:.0f} plies/game")
         return games
-
-
-def _log_selfplay_progress(done: int, n_games: int) -> None:
-    step = max(1, n_games // 8)
-    if done == 1 or done == n_games or done % step == 0:
-        print(f"self-play: {done}/{n_games} games", flush=True)
 
 
 _WORKER: dict = {}

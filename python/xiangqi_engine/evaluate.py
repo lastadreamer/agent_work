@@ -8,6 +8,7 @@ from xiangqi_engine._xiangqi import RED, Board, Outcome
 from xiangqi_engine.config import Cfg, load_config
 from xiangqi_engine.encode import Encoder
 from xiangqi_engine.mcts import MCTS, terminal_value
+from xiangqi_engine.progress import Progress
 from xiangqi_engine.selfplay import outcome_to_red_z
 
 
@@ -72,6 +73,7 @@ def play_match(
     n_games = int(cfg["eval"]["n_games"] if n_games is None else n_games)
     simulations = int(cfg["eval"]["mcts_simulations"] if simulations is None else simulations)
     wins = losses = draws = 0
+    progress = Progress("eval", n_games)
     for i in range(n_games):
         if i % 2 == 0:
             z_red = play_eval_game(cfg, challenger, incumbent, simulations, seed + i)
@@ -85,4 +87,5 @@ def play_match(
             losses += 1
         else:
             draws += 1
+        progress.update(i + 1, extra=f"W{wins} L{losses} D{draws}")
     return MatchResult(wins, losses, draws, n_games)
