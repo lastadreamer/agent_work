@@ -177,6 +177,27 @@ class MCTS:
     def reset(self) -> None:
         self.root = _Node()
 
+    def advance(self, action_index: int) -> bool:
+        """Keep the subtree of `action_index` as the new root after that move is played.
+
+        Returns True if the child existed. Otherwise starts a fresh root.
+        Do not persist this tree across games or network updates: N/Q/P are
+        only valid for the current position and the current evaluator.
+        """
+        if (
+            self.root.actions is None
+            or self.root.child is None
+            or self.root.actions.size == 0
+        ):
+            self.root = _Node()
+            return False
+        hits = np.flatnonzero(self.root.actions == int(action_index))
+        if hits.size == 0:
+            self.root = _Node()
+            return False
+        self.root = self.root.child[int(hits[0])]
+        return True
+
     def _c_puct(self, n_sum: int) -> float:
         if self.c_puct_base > 0:
             return math.log((1.0 + n_sum + self.c_puct_base) / self.c_puct_base) + self.c_puct_init
@@ -251,8 +272,8 @@ class MCTS:
 
         if not self.root.expanded:
             self._expand(self.root, board, game_past)
-            if noise and self.root.prior is not None and self.root.prior.size > 1:
-                self._apply_dirichlet(self.root)
+        if noise and self.root.prior is not None and self.root.prior.size > 1:
+            self._apply_dirichlet(self.root)
 
         if self.root.terminal_v is not None or self.root.actions is None or self.root.actions.size == 0:
             policy = [0.0] * ACTION_FROM_TO

@@ -33,17 +33,27 @@ def play_eval_game(cfg: Cfg, ev_red, ev_black, simulations: int, seed: int) -> f
     enc.reset(board)
     red = MCTS(cfg, ev_red, encoder=enc, seed=seed)
     black = MCTS(cfg, ev_black, encoder=enc, seed=seed + 1)
+    reuse_tree = bool(cfg["mcts"].get("reuse_tree", True))
     max_plies = int(cfg["selfplay"]["max_plies"])
     for _ in range(max_plies):
         if terminal_value(board) is not None:
             break
         mcts = red if board.side_to_move() == RED else black
-        result = mcts.run(board, simulations=simulations, add_noise=False, temperature=0.0)
+        result = mcts.run(
+            board,
+            simulations=simulations,
+            add_noise=False,
+            temperature=0.0,
+            reuse=reuse_tree,
+        )
         if result.move is None:
             break
         board.push(result.move)
         enc.observe(board)
-        mcts.reset()
+        if reuse_tree:
+            mcts.advance(result.action_index)
+        else:
+            mcts.reset()
     term = board.terminal()
     outcome = term.outcome if term.outcome != Outcome.ONGOING else Outcome.DRAW
     return outcome_to_red_z(outcome)

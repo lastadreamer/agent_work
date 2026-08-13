@@ -48,6 +48,7 @@ def play_game(
     max_plies = int(cfg["selfplay"]["max_plies"])
     temp_moves = int(cfg["mcts"]["temperature_moves"])
     tau_open = float(cfg["mcts"]["temperature"])
+    reuse_tree = bool(cfg["mcts"].get("reuse_tree", True))
     pending: list[tuple[np.ndarray, list[float], int]] = []
 
     for ply in range(max_plies):
@@ -62,13 +63,17 @@ def play_game(
             simulations=simulations,
             add_noise=True,
             temperature=tau,
+            reuse=reuse_tree,
         )
         if result.move is None:
             break
         pending.append((state, result.policy, side))
         board.push(result.move)
         enc.observe(board)
-        mcts.reset()
+        if reuse_tree:
+            mcts.advance(result.action_index)
+        else:
+            mcts.reset()
 
     term = board.terminal()
     outcome = term.outcome if term.outcome != Outcome.ONGOING else Outcome.DRAW

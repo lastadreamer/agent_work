@@ -51,7 +51,7 @@
   },
 
   "mcts": {
-    "_doc": "PUCT: Q + c_puct * P * sqrt(N) / (1+n). If c_puct_base>0, c_puct grows like the AlphaZero appendix. Dirichlet noise is added at the root during self-play (add_dirichlet_noise). Evaluation games should pass add_noise=False.",
+    "_doc": "PUCT: Q + c_puct * P * sqrt(N) / (1+n). If c_puct_base>0, c_puct grows like the AlphaZero appendix. Dirichlet noise is added at the root during self-play (add_dirichlet_noise). Evaluation games should pass add_noise=False. reuse_tree keeps the played-move subtree inside one game; trees are still discarded between games and are not written into training checkpoints.",
     "simulations": 400,
     "c_puct": 1.5,
     "c_puct_base": 0,
@@ -59,6 +59,7 @@
     "dirichlet_alpha": 0.3,
     "dirichlet_epsilon": 0.25,
     "add_dirichlet_noise": true,
+    "reuse_tree": true,
     "temperature": 1.0,
     "temperature_moves": 16,
     "max_game_plies": 400

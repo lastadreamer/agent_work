@@ -123,6 +123,28 @@ def test_terminal_root_returns_empty():
     assert isinstance(result, SearchResult)
 
 
+def test_advance_reuses_subtree_visits():
+    b = Board()
+    m = _mcts(seed=0)
+    first = m.run(b, simulations=40, add_noise=False, temperature=0, reuse=True)
+    assert first.action_index in first.visit_counts
+    kept = m.advance(first.action_index)
+    assert kept
+    b.push(first.move)
+    warmed = int(m.root.n.sum()) if m.root.expanded and m.root.n is not None else 0
+    second = m.run(b, simulations=20, add_noise=False, temperature=0, reuse=True)
+    assert second.move is not None
+    assert sum(second.visit_counts.values()) == warmed + 20
+
+
+def test_advance_unknown_action_starts_fresh():
+    b = Board()
+    m = _mcts(seed=1)
+    m.run(b, simulations=8, add_noise=False, temperature=0, reuse=True)
+    assert m.advance(ACTION_FROM_TO - 1) is False
+    assert m.root.expanded is False
+
+
 def test_thread_pool_independent_trees():
     def job(seed: int) -> str:
         b = Board()
