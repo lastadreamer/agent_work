@@ -59,6 +59,24 @@ def test_sample_from_dense_keeps_mass():
     assert abs(float(s.policy_prob.sum()) - 1.0) < 1e-6
 
 
+def test_replay_buffer_save_load(tmp_path):
+    cfg = _fast_cfg()
+    enc = Encoder(cfg)
+    rec = play_game(cfg, UniformEvaluator(enc), Encoder(cfg), seed=2, simulations=3)
+    buf = ReplayBuffer(cfg, capacity=64)
+    buf.extend(rec.samples)
+    path = tmp_path / "buffer.pkl"
+    buf.save(path)
+    other = ReplayBuffer(cfg, capacity=64)
+    other.load(path)
+    assert len(other) == len(buf)
+    s0, p0, v0 = buf.sample(len(buf), rng=np.random.default_rng(0))
+    s1, p1, v1 = other.sample(len(other), rng=np.random.default_rng(0))
+    assert np.allclose(s0, s1)
+    assert np.allclose(p0, p1)
+    assert np.allclose(v0, v1)
+
+
 def test_process_pool_uniform_games():
     cfg = _fast_cfg()
     cfg["selfplay"]["n_workers"] = 2

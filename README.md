@@ -58,10 +58,26 @@ python -m xiangqi_engine.loop --config config/smoke.json
 ```bash
 python -m xiangqi_engine.loop
 xiangqi-train --iterations 20
-xiangqi-train --checkpoint checkpoints/best.pt   # 从已有权重接着训
 ```
 
-每一轮大致是：当前网络自我对弈 → 样本进回放池 → 梯度更新 → 和 best 对打，胜率够了再晋升。日志写在 `logs/train.jsonl`，权重在 `checkpoints/`（`iter_XXXX.pt` 和 `best.pt`）。路径可在 JSON 的 `paths` 里改。
+每一轮大致是：当前网络自我对弈 → 样本进回放池 → 梯度更新 → 和 best 对打，胜率够了再晋升。日志写在 `logs/train.jsonl`。快照会写：
+
+| 文件 | 内容 |
+| --- | --- |
+| `checkpoints/iter_XXXX.pt` + `iter_XXXX.replay.pkl` | 该轮完整断点：当前网、best 网、优化器、迭代号、回放池 |
+| `checkpoints/latest.pt` + `latest.replay.pkl` | 同上，始终指向最近一次保存 |
+| `checkpoints/best.pt` | 仅晋升后的权重，给对弈界面用 |
+
+中断之后从断点继续（`--iterations` 表示**再跑多少轮**，不是从头数到第几轮）：
+
+```bash
+xiangqi-train --resume                          # 读 latest.pt
+xiangqi-train --checkpoint checkpoints/iter_0005.pt --iterations 20
+```
+
+会恢复：网络权重、当时的 best、Adam/SGD 状态、回放池、迭代序号。下一轮自我对弈的随机种子仍由 `seed + iteration` 决定，所以不会和已经跑过的轮次撞车。
+
+**不会**保存 MCTS 树。每步棋都是当场重新搜索，AlphaZero 通常也是这样；树不是训练状态的一部分。只拿到旧的 `best.pt`（没有 sidecar 回放、没有优化器）也能接着训，但回放池是空的、优化器会重开。
 
 `default.json` 按「能认真训」给的：每轮 64 盘、每步 400 次模拟、6×128 网络。机器吃不消就先改小 `selfplay.n_games_per_iter`、`mcts.simulations`、`network.blocks` / `channels`，或继续用 `smoke.json` 当模板另存一份。
 
@@ -94,7 +110,7 @@ xiangqi-play --checkpoint checkpoints/best.pt --simulations 200
 | 段 | 作用 |
 | --- | --- |
 | `device` | `auto` / `cpu` / `cuda` |
-| `paths` | 权重、回放、日志目录 |
+| `paths` | 权重、回放、日志、`latest_checkpoint` |
 | `network` | 残差块数、通道 |
 | `mcts` | 模拟次数、PUCT、温度、Dirichlet |
 | `selfplay` | 每轮盘数、进程数、单局最长步数 |

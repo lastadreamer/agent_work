@@ -51,6 +51,7 @@ def train_batches(
     n_batches: int | None = None,
     device: str | None = None,
     optimizer=None,
+    seed: int | None = None,
 ) -> dict[str, float]:
     import torch
 
@@ -63,7 +64,7 @@ def train_batches(
     n_batches = int(t["batches_per_iter"] if n_batches is None else n_batches)
     batch_size = int(t["batch_size"])
     clip = float(t.get("grad_clip", 0.0))
-    rng = np.random.default_rng(int(cfg["seed"]))
+    rng = np.random.default_rng(int(cfg["seed"] if seed is None else seed))
     acc = {"loss": 0.0, "policy_loss": 0.0, "value_loss": 0.0}
     for _ in range(n_batches):
         states, policies, values = buffer.sample(batch_size, rng)
