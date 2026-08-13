@@ -1,12 +1,13 @@
 {
-  "_doc": "Tiny loop for a sanity run: python -m xiangqi_engine.loop --config config/smoke.json",
+  "_doc": "CPU smoke for a laptop / Mac: python -m xiangqi_engine.loop --config config/smoke.json. Tiny net, few sims, one worker. Never requires CUDA.",
   "seed": 1,
   "device": "cpu",
   "paths": {
     "checkpoint_dir": "checkpoints/smoke",
     "replay_dir": "data/replay",
     "log_dir": "logs/smoke",
-    "best_checkpoint": "checkpoints/smoke/best.pt"
+    "best_checkpoint": "checkpoints/smoke/best.pt",
+    "latest_checkpoint": "checkpoints/smoke/latest.pt"
   },
   "board": { "ranks": 10, "files": 9, "n_squares": 90 },
   "encode": {
@@ -47,7 +48,9 @@
   "selfplay": {
     "n_games_per_iter": 2,
     "n_workers": 1,
-    "max_plies": 40
+    "max_plies": 40,
+    "device": "cpu",
+    "gpus": 0
   },
   "replay": { "capacity": 4096, "min_size": 8 },
   "train": {
@@ -69,6 +72,14 @@
     "win_rate_threshold": 0.55
   },
   "loop": { "n_iterations": 1, "save_every": 1, "eval_every": 1 },
+  "play": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "simulations": 16,
+    "checkpoint": "",
+    "red": "human",
+    "black": "ai"
+  },
   "rules": {
     "repetition_draw_count": 3,
     "no_progress_halfmoves": 120,

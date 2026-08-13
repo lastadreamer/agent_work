@@ -114,15 +114,23 @@ def n_input_planes_from_config(cfg: Mapping[str, Any]) -> int:
 
 
 def resolve_device(cfg: Mapping[str, Any], override: str | None = None) -> str:
-    name = override or cfg.get("device", "auto")
-    if name != "auto":
-        return str(name)
+    """Pick a torch device. `cuda` / `auto` fall back to CPU when CUDA is missing (Mac, CI)."""
+    name = str(override if override is not None else cfg.get("device", "auto")).strip().lower()
     try:
         import torch
-
-        return "cuda" if torch.cuda.is_available() else "cpu"
     except ImportError:
         return "cpu"
+    if name in ("", "auto"):
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if name == "cuda" or name.startswith("cuda:"):
+        if not torch.cuda.is_available():
+            return "cpu"
+        if name.startswith("cuda:") and name != "cuda:":
+            idx = int(name.split(":", 1)[1])
+            if idx >= int(torch.cuda.device_count()):
+                return "cpu"
+        return name
+    return name
 
 
 def deepcopy_config(cfg: Mapping[str, Any]) -> Cfg:

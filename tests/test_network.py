@@ -53,3 +53,13 @@ def test_infer_helper_and_build_network():
     assert abs(sum(probs) - 1.0) < 1e-5
     assert -1.0 <= value <= 1.0
     assert resolve_device(cfg, "cpu") == "cpu"
+
+
+def test_resolve_device_cuda_falls_back_to_cpu_without_gpu():
+    cfg = _tiny_cfg()
+    cfg["device"] = "cuda"
+    if not torch.cuda.is_available():
+        assert resolve_device(cfg) == "cpu"
+        assert resolve_device(cfg, "cuda:0") == "cpu"
+    cfg["device"] = "auto"
+    assert resolve_device(cfg) in ("cpu", "cuda")

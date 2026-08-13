@@ -1,8 +1,8 @@
 {
-  "_doc": "Training profile for a 4× NVIDIA H200 box (141GB each). The loop trains on one GPU (device). Self-play workers spread inference across selfplay.gpus cards. Current nvidia-smi on that machine often shows 110GB+ already used: free the cards first, or set CUDA_VISIBLE_DEVICES and lower selfplay.gpus. Keys starting with _ are documentation and are stripped on load.",
+  "_doc": "Training profile for a 4× NVIDIA H200 box (141GB each). device/selfplay.device=auto uses CUDA when present and CPU otherwise (Mac, CI). The loop trains on one GPU. Self-play workers spread inference across selfplay.gpus cards. If nvidia-smi shows the cards full, free them first or set CUDA_VISIBLE_DEVICES. Keys starting with _ are documentation and are stripped on load.",
 
   "seed": 42,
-  "device": "cuda",
+  "device": "auto",
 
   "paths": {
     "_doc": "Relative to the process working directory.",
@@ -66,11 +66,11 @@
   },
 
   "selfplay": {
-    "_doc": "256 games / 32 workers ≈ 8 processes per H200. Each worker loads its own net. device=cuda spreads workers with cuda:(id % gpus). If cards are busy, set gpus to the number of free cards or CUDA_VISIBLE_DEVICES. Inference is still one position at a time, so many workers matter more than a huge batch.",
+    "_doc": "256 games / 32 workers ≈ 8 processes per H200. Each worker loads its own net. device=auto spreads workers with cuda:(id % gpus) when CUDA exists, otherwise CPU. If cards are busy, set gpus to the number of free cards or CUDA_VISIBLE_DEVICES. Inference is still one position at a time, so many workers matter more than a huge batch.",
     "n_games_per_iter": 256,
     "n_workers": 32,
     "max_plies": 400,
-    "device": "cuda",
+    "device": "auto",
     "gpus": 4
   },
 

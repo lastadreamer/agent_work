@@ -4,7 +4,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from xiangqi_engine.config import deepcopy_config, load_config
+from xiangqi_engine.config import deepcopy_config, load_config, resolve_device
 from xiangqi_engine.loop import (
     checkpoint_replay_path,
     load_checkpoint,
@@ -107,3 +107,11 @@ def test_old_weight_only_checkpoint_still_resumes(tmp_path):
     cfg["loop"]["n_iterations"] = 1
     history = run_loop(cfg, resume=str(path))
     assert history[0]["iteration"] == 4
+
+
+def test_smoke_config_is_cpu_only():
+    cfg = load_config("config/smoke.json")
+    assert cfg["device"] == "cpu"
+    assert cfg["selfplay"]["device"] == "cpu"
+    assert cfg["selfplay"]["n_workers"] == 1
+    assert resolve_device(cfg) == "cpu"

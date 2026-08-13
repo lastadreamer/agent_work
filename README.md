@@ -28,8 +28,11 @@ cd agent_work
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
+# Linux 上若默认 c++ 是 clang++ 且链不上 libstdc++，用 g++：
 CXX=g++ pip install -e ".[dev]"    # 含 pytest、torch；只要训练可用 ".[train]"
-pytest -q
+# macOS 一般直接：
+# pip install -e ".[dev]"
+pytest -q                          # 单测走 CPU，不需要 GPU
 ```
 
 装好后有两个命令：`xiangqi-train`、`xiangqi-play`。也可以用 `python -m xiangqi_engine.loop` / `python -m xiangqi_engine.play`。
@@ -46,14 +49,15 @@ cmake --build build -j
 
 ## 训练
 
-先跑冒烟配置，确认闭环能转：小网络、少模拟、一局迭代很快结束。
+本机或 Mac 上先跑冒烟：强制 CPU、小网络、少模拟、单进程，不需要 CUDA。
 
 ```bash
 python -m xiangqi_engine.loop --config config/smoke.json
 # 或：xiangqi-train --config config/smoke.json
+pytest -q
 ```
 
-正式训练读 `config/default.json`（也可设环境变量 `XIANGQI_CONFIG` 指向自己的文件）：
+正式训练读 `config/default.json`（`device` / `selfplay.device` 为 `auto`：有 CUDA 用 GPU，没有就用 CPU）。H200 上会走到 GPU；Mac 上误跑这份也会落到 CPU，只是 20×256 + 256 盘会极慢，所以本机请用 `smoke.json`。也可设 `XIANGQI_CONFIG` 指向自己的文件：
 
 ```bash
 python -m xiangqi_engine.loop
