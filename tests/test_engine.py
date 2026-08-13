@@ -184,6 +184,7 @@ def test_threefold_draw():
     b = Board()
     cycle = ["h2e2", "h7e7", "e2h2", "e7h7"]
     # Start position counts as 1. After two full cycles the start hash appears 3 times.
+    # Idle cannon shuttle: 允许不变, still a draw.
     for _ in range(2):
         for iccs in cycle:
             assert b.terminal().outcome == Outcome.ONGOING
@@ -191,6 +192,62 @@ def test_threefold_draw():
     term = b.terminal()
     assert term.reason == TerminalReason.REPETITION
     assert term.outcome == Outcome.DRAW
+
+
+def test_rook_chases_unprotected_horse():
+    # Red rook on b8 attacks black horse on b9; horse has no protector.
+    b = Board("1n7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    assert b.is_chasing(RED)
+    assert not b.is_chasing(BLACK)
+
+
+def test_protected_piece_is_not_chase():
+    # Same rook-vs-horse, but a black chariot on a9 protects the horse.
+    b = Board("rn7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    assert not b.is_chasing(RED)
+
+
+def test_pawn_only_attack_is_not_chase():
+    # Crossed red pawn on e5 attacks an unprotected black rook on e6.
+    # 兵允许长捉: pawn-only attacks do not count as 捉.
+    b = Board("4k4/9/9/4r4/4P4/9/9/9/9/4K4 w - - 0 1")
+    assert not b.is_chasing(RED)
+
+
+def test_perpetual_check_loses():
+    # Rook on the d-file checks the black king. Red king sits on f0 so
+    # d9-e9 is not a flying-general suicide. Cycle is forced 长将 by red.
+    b = Board("3k5/9/9/9/9/9/9/9/3R5/5K3 b - - 0 1")
+    assert b.in_check()
+    cycle = ["d9e9", "d1e1", "e9d9", "e1d1"]
+    for _ in range(2):
+        for iccs in cycle:
+            assert b.terminal().outcome == Outcome.ONGOING
+            b.push_iccs(iccs)
+    fen_after = b.fen()
+    term = b.terminal()
+    assert term.reason == TerminalReason.PERPETUAL_CHECK
+    assert term.outcome == Outcome.BLACK_WIN
+    assert b.fen() == fen_after
+    b.pop()
+    assert b.terminal().outcome == Outcome.ONGOING
+
+
+def test_perpetual_chase_loses():
+    # Red rook chases an unprotected horse: b9-d8 / b8-d7 and back.
+    b = Board("1n7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    cycle = ["b9d8", "b8d7", "d8b9", "d7b8"]
+    for _ in range(2):
+        for iccs in cycle:
+            assert b.terminal().outcome == Outcome.ONGOING
+            b.push_iccs(iccs)
+    fen_after = b.fen()
+    term = b.terminal()
+    assert term.reason == TerminalReason.PERPETUAL_CHASE
+    assert term.outcome == Outcome.BLACK_WIN
+    assert b.fen() == fen_after
+    b.pop()
+    assert b.terminal().outcome == Outcome.ONGOING
 
 
 def test_copy_is_independent():

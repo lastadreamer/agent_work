@@ -78,7 +78,8 @@ function render() {
       boardEl.appendChild(sq);
     }
   }
-  const over = state.over ? `终局：${state.outcome}` : `轮到 ${state.side === "red" ? "红" : "黑"}`;
+  const reason = state.over && state.reason ? `（${state.reason}）` : "";
+  const over = state.over ? `终局：${state.outcome}${reason}` : `轮到 ${state.side === "red" ? "红" : "黑"}`;
   const check = !state.over && state.in_check ? "（将军）" : "";
   const err = state.error ? ` · ${state.error}` : "";
   statusEl.textContent = over + check + err;

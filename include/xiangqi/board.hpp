@@ -50,9 +50,11 @@ enum class TerminalReason : uint8_t {
     NONE = 0,
     CHECKMATE,   // no legal move while in check
     STALEMATE,   // 困毙: no legal move, not in check — a loss in Xiangqi
-    REPETITION,  // simplified 3-fold (not official chase/check rules)
-    NO_PROGRESS, // 60 full moves without capture or pawn move
-    MAX_PLY
+    REPETITION,        // 允许不变: 三次重复且双方都不是长将/长捉
+    NO_PROGRESS,       // 60 full moves without capture or pawn move
+    MAX_PLY,
+    PERPETUAL_CHECK,   // 长将: 循环中一方每步都是将军
+    PERPETUAL_CHASE    // 长捉 / 一将一捉: 循环中一方每步都是将或捉
 };
 
 constexpr Square NO_SQUARE = 255;
@@ -172,8 +174,11 @@ struct Board {
 
     bool in_check() const;
     bool is_attacked(Square sq, Color by) const;
+    bool attacks_from(Square from, Square to) const;
+    bool is_chasing(Color us) const;
 
     Terminal terminal();  // uses legal-move generation (non-const)
+    Terminal adjudicate_repetition();
     Color side_to_move() const { return side; }
     Piece piece_at(Square sq) const { return squares[sq]; }
     bool is_capture(Move m) const { return squares[m.to()] != EMPTY; }

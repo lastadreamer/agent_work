@@ -285,18 +285,19 @@ int Board::repetition_count() const {
     return n;
 }
 
-bool Board::is_attacked(Square sq, Color by) const {
-    for (int i = 0; i < n_pieces[by]; ++i) {
-        const Square from = piece_list[by][i];
-        const Piece p = squares[from];
-        const int ff = file_of(from);
-        const int rf = rank_of(from);
-        const int ft = file_of(sq);
-        const int rt = rank_of(sq);
-        const int df = ft - ff;
-        const int dr = rt - rf;
+bool Board::attacks_from(Square from, Square to) const {
+    if (from == to || from >= N_SQUARES || to >= N_SQUARES) return false;
+    const Piece p = squares[from];
+    if (p == EMPTY) return false;
+    const Color by = color_of(p);
+    const int ff = file_of(from);
+    const int rf = rank_of(from);
+    const int ft = file_of(to);
+    const int rt = rank_of(to);
+    const int df = ft - ff;
+    const int dr = rt - rf;
 
-        switch (type_of(p)) {
+    switch (type_of(p)) {
             case PieceType::KING: {
                 if (df == 0 && dr != 0) {
                     // Flying general: same file, empty path, target is the other king.
@@ -308,23 +309,23 @@ bool Board::is_attacked(Square sq, Color by) const {
                             break;
                         }
                     }
-                    if (!blocked && type_of(squares[sq]) == PieceType::KING) return true;
+                    if (!blocked && type_of(squares[to]) == PieceType::KING) return true;
                 }
                 if ((std::abs(df) + std::abs(dr)) == 1 && in_palace(from, by) &&
-                    in_palace(sq, by)) {
+                    in_palace(to, by)) {
                     return true;
                 }
                 break;
             }
             case PieceType::ADVISOR:
                 if (std::abs(df) == 1 && std::abs(dr) == 1 && in_palace(from, by) &&
-                    in_palace(sq, by)) {
+                    in_palace(to, by)) {
                     return true;
                 }
                 break;
             case PieceType::ELEPHANT:
                 if (std::abs(df) == 2 && std::abs(dr) == 2 &&
-                    elephant_on_own_side(sq, by) &&
+                    elephant_on_own_side(to, by) &&
                     squares[make_square(rf + dr / 2, ff + df / 2)] == EMPTY) {
                     return true;
                 }
@@ -383,6 +384,38 @@ bool Board::is_attacked(Square sq, Color by) const {
                 break;
             }
         }
+    }
+    return false;
+}
+
+bool Board::is_attacked(Square sq, Color by) const {
+    for (int i = 0; i < n_pieces[by]; ++i) {
+        if (attacks_from(piece_list[by][i], sq)) return true;
+    }
+    return false;
+}
+
+bool Board::is_chasing(Color us) const {
+    // 捉: attack an unprotected non-king piece. 未过河兵/卒不算被捉.
+    // 仅兵/卒去捉也不算（兵允许长捉）。有根子不算。
+    const Color them = static_cast<Color>(us ^ 1);
+    for (int i = 0; i < n_pieces[them]; ++i) {
+        const Square sq = piece_list[them][i];
+        const Piece p = squares[sq];
+        if (type_of(p) == PieceType::KING) continue;
+        if (type_of(p) == PieceType::PAWN && !pawn_has_crossed_river(sq, them)) continue;
+        if (!is_attacked(sq, us)) continue;
+        if (is_attacked(sq, them)) continue;
+        bool non_pawn = false;
+        for (int j = 0; j < n_pieces[us]; ++j) {
+            const Square from = piece_list[us][j];
+            if (!attacks_from(from, sq)) continue;
+            if (type_of(squares[from]) != PieceType::PAWN) {
+                non_pawn = true;
+                break;
+            }
+        }
+        if (non_pawn) return true;
     }
     return false;
 }
@@ -649,9 +682,7 @@ Terminal Board::terminal() {
         return t;
     }
     if (repetition_count() >= 3) {
-        t.outcome = Outcome::DRAW;
-        t.reason = TerminalReason::REPETITION;
-        return t;
+        return adjudicate_repetition();
     }
     if (halfmove >= 120) {
         t.outcome = Outcome::DRAW;
@@ -663,6 +694,72 @@ Terminal Board::terminal() {
         t.reason = check ? TerminalReason::CHECKMATE : TerminalReason::STALEMATE;
         t.outcome = (side == RED) ? Outcome::BLACK_WIN : Outcome::RED_WIN;
         return t;
+    }
+    return t;
+}
+
+Terminal Board::adjudicate_repetition() {
+    // Last cycle only. Each move is 将 if it leaves the opponent in check,
+    // else 捉 if the mover is chasing, else 闲.
+    // 单方长将 → 该方负; 双方长将 → 和; else 单方长捉/一将一捉 → 该方负; else 和.
+    int prev = -1;
+    for (int i = ply - 1; i >= 0; --i) {
+        if (hist[i] == hash) {
+            prev = i;
+            break;
+        }
+    }
+    const int cycle_len = ply - prev;
+    if (prev < 0 || cycle_len < 2) {
+        Terminal t;
+        t.outcome = Outcome::DRAW;
+        t.reason = TerminalReason::REPETITION;
+        return t;
+    }
+
+    Move cycle[MAX_PLY];
+    for (int k = 0; k < cycle_len; ++k) {
+        cycle[k] = undos[prev + k].move;
+    }
+
+    bool red_check = true;
+    bool black_check = true;
+    bool red_offend = true;
+    bool black_offend = true;
+    for (int k = 0; k < cycle_len; ++k) {
+        const Color mover = static_cast<Color>(side ^ 1);
+        const bool check = in_check();
+        const bool chase = !check && is_chasing(mover);
+        if (mover == RED) {
+            red_check = red_check && check;
+            red_offend = red_offend && (check || chase);
+        } else {
+            black_check = black_check && check;
+            black_offend = black_offend && (check || chase);
+        }
+        unmake_move();
+    }
+    for (int k = 0; k < cycle_len; ++k) {
+        make_move(cycle[k]);
+    }
+
+    Terminal t;
+    t.outcome = Outcome::DRAW;
+    t.reason = TerminalReason::REPETITION;
+    if (red_check && !black_check) {
+        t.outcome = Outcome::BLACK_WIN;
+        t.reason = TerminalReason::PERPETUAL_CHECK;
+    } else if (black_check && !red_check) {
+        t.outcome = Outcome::RED_WIN;
+        t.reason = TerminalReason::PERPETUAL_CHECK;
+    } else if (red_check && black_check) {
+        // 双方长将: 和
+    } else if (red_offend && !black_offend) {
+        t.outcome = Outcome::BLACK_WIN;
+        t.reason = TerminalReason::PERPETUAL_CHASE;
+    } else if (black_offend && !red_offend) {
+        t.outcome = Outcome::RED_WIN;
+        t.reason = TerminalReason::PERPETUAL_CHASE;
     }
     return t;
 }

@@ -130,7 +130,9 @@ PYBIND11_MODULE(_xiangqi, m) {
         .value("STALEMATE", TerminalReason::STALEMATE)
         .value("REPETITION", TerminalReason::REPETITION)
         .value("NO_PROGRESS", TerminalReason::NO_PROGRESS)
-        .value("MAX_PLY", TerminalReason::MAX_PLY);
+        .value("MAX_PLY", TerminalReason::MAX_PLY)
+        .value("PERPETUAL_CHECK", TerminalReason::PERPETUAL_CHECK)
+        .value("PERPETUAL_CHASE", TerminalReason::PERPETUAL_CHASE);
 
     py::class_<Move>(m, "Move")
         .def(py::init<>())
@@ -174,6 +176,11 @@ PYBIND11_MODULE(_xiangqi, m) {
         .def("unmake_move", &Board::unmake_move)
         .def("last_move", &Board::last_move)
         .def("in_check", &Board::in_check)
+        .def("is_chasing",
+             [](const Board& b, int color) {
+                 return b.is_chasing(static_cast<xiangqi::Color>(color));
+             },
+             py::arg("color"))
         .def("is_attacked",
              [](const Board& b, int sq, int color) {
                  return b.is_attacked(static_cast<xiangqi::Square>(sq),

@@ -29,6 +29,16 @@ def test_new_game_start_position():
     assert st["squares"][-1][4]["glyph"] == "帅"
 
 
+def test_idle_repetition_shows_chinese_reason():
+    s = _session()
+    for iccs in ["h2e2", "h7e7", "e2h2", "e7h7"] * 2:
+        s.move(iccs)
+    st = s.state()
+    assert st["over"] is True
+    assert st["outcome"] == "和棋"
+    assert st["reason"] == "允许不变"
+
+
 def test_legal_and_illegal_move():
     s = _session()
     st = s.move("b2e2")

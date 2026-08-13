@@ -119,7 +119,7 @@
   },
 
   "rules": {
-    "_doc": "Must stay in sync with the C++ engine. repetition_draw_count 3 and no_progress_halfmoves 120 are the current simplified draw rules.",
+    "_doc": "Must stay in sync with the C++ engine. Threefold is adjudicated: perpetual check / chase lose; idle or mutual offence draws. no_progress_halfmoves 120 is a draw.",
     "repetition_draw_count": 3,
     "no_progress_halfmoves": 120,
     "stalemate_is_loss": true

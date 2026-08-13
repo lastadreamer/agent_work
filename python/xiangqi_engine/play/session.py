@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from xiangqi_engine._xiangqi import RED, Board, Move, Outcome, square_to_iccs
+from xiangqi_engine._xiangqi import RED, Board, Move, Outcome, TerminalReason, square_to_iccs
 from xiangqi_engine.config import Cfg, deepcopy_config, load_config
 from xiangqi_engine.encode import Encoder
 from xiangqi_engine.mcts import MCTS, UniformEvaluator, terminal_value
@@ -30,6 +30,17 @@ OUTCOME_TEXT = {
     Outcome.RED_WIN: "红胜",
     Outcome.BLACK_WIN: "黑胜",
     Outcome.DRAW: "和棋",
+}
+
+REASON_TEXT = {
+    TerminalReason.NONE: "",
+    TerminalReason.CHECKMATE: "将死",
+    TerminalReason.STALEMATE: "困毙",
+    TerminalReason.REPETITION: "允许不变",
+    TerminalReason.NO_PROGRESS: "六十回合",
+    TerminalReason.MAX_PLY: "超限",
+    TerminalReason.PERPETUAL_CHECK: "长将",
+    TerminalReason.PERPETUAL_CHASE: "长捉",
 }
 
 
@@ -257,7 +268,7 @@ class PlaySession:
             "side": "red" if self.board.side_to_move() == RED else "black",
             "in_check": bool(self.board.in_check()),
             "outcome": OUTCOME_TEXT.get(term.outcome, ""),
-            "reason": str(term.reason).split(".")[-1] if term.outcome != Outcome.ONGOING else "",
+            "reason": REASON_TEXT.get(term.reason, "") if term.outcome != Outcome.ONGOING else "",
             "over": term.outcome != Outcome.ONGOING,
             "history": list(self.history),
             "last_move": last,
