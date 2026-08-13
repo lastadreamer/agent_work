@@ -7,12 +7,12 @@ name = "xiangqi-engine"
 version = "0.3.0"
 description = "High-performance Xiangqi engine and AlphaZero policy-value network"
 readme = "README.md"
-requires-python = ">=3.9"
-dependencies = ["numpy"]
-
-[project.optional-dependencies]
-dev = ["pytest", "torch", "numpy"]
-train = ["torch", "numpy"]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.2",
+    "pytest>=8.0",
+]
 
 [project.scripts]
 xiangqi-train = "xiangqi_engine.loop:main"
@@ -26,6 +26,9 @@ package-dir = {"" = "python"}
 
 [tool.setuptools.packages.find]
 where = ["python"]
+
+[tool.uv]
+package = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -12,30 +12,40 @@
 
 ## 环境配置
 
+开发和测试训练是**同一套环境**：C++ 引擎、PyTorch、pytest 都在 `pyproject.toml` 里，用 `uv.lock` 对齐版本。Mac 上跑单测 / 冒烟，H200 上正式训练，都 `uv sync`。
+
 需要：
 
-- Python 3.9+
-- C++17 编译器（建议 `g++`）
-- 对应版本的 Python 头文件（Debian/Ubuntu：`python3-dev`）
-- 训练和对弈里的引擎走棋还需要 **PyTorch**
-
-本仓库用 pybind11 编译 C++ 扩展。若系统默认 `c++` 是 clang++ 且链不上 `libstdc++`，安装和编译时指定 `CXX=g++`。
+- [uv](https://docs.astral.sh/uv/)
+- Python 3.10+（仓库钉的是 3.12，没有的话 `uv` 会按 `.python-version` 装）
+- C++17 编译器（Linux 建议 `g++`；macOS 用自带 clang 即可）
+- Debian/Ubuntu 还要 `python3-dev`
 
 ```bash
+# 安装 uv（任选一种）
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 git clone https://github.com/lastadreamer/agent_work.git
 cd agent_work
 
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+# 按 lockfile 建 .venv，并编译本仓库的 C++ 扩展（可编辑安装）
+# Linux 上若默认 c++ 是 clang++ 且链不上 libstdc++：
+CXX=g++ uv sync
+# macOS：
+# uv sync
 
-# Linux 上若默认 c++ 是 clang++ 且链不上 libstdc++，用 g++：
-CXX=g++ pip install -e ".[dev]"    # 含 pytest、torch；只要训练可用 ".[train]"
-# macOS 一般直接：
-# pip install -e ".[dev]"
-pytest -q                          # 单测走 CPU，不需要 GPU
+uv run pytest -q                              # 单测，CPU 即可
+uv run xiangqi-train --config config/smoke.json   # 冒烟训练，同样走 CPU
 ```
 
-装好后有两个命令：`xiangqi-train`、`xiangqi-play`。也可以用 `python -m xiangqi_engine.loop` / `python -m xiangqi_engine.play`。
+`uv sync` 之后也可以 `source .venv/bin/activate`，然后直接用 `pytest`、`xiangqi-train`、`xiangqi-play`。改过 `pyproject.toml` 后重新 `uv lock` 再提交 `uv.lock`。
+
+没有 uv 时的等价安装（版本不会和 lockfile 逐字对齐）：
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+CXX=g++ pip install -e .
+```
 
 可选：单独编一个 C++ perft，用来对照 [Chess Programming Wiki](https://www.chessprogramming.org/Chinese_Chess) 的节点数。
 
