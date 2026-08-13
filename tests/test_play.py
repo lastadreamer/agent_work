@@ -72,6 +72,25 @@ def test_ai_move_uniform_and_refuse_human_side():
     assert len(refused["history"]) == 1
 
 
+def test_one_tree_descends_on_move_and_retreats_on_undo():
+    s = _session()
+    s.new_game(red="human", black="ai", simulations=8, checkpoint="")
+    assert s._search is not None
+    start = s._search.root
+    assert start.expanded
+    visits_at_start = int(start.n.sum())
+    assert visits_at_start == 8
+    s.move("b2e2")
+    assert s._search.root is not start
+    assert len(s._search._ancestors) == 1
+    s.ai_move()
+    assert len(s._search._ancestors) == 2
+    s.undo(2)
+    assert s.history == []
+    assert s._search.root is start
+    assert int(s._search.root.n.sum()) == visits_at_start
+
+
 def test_static_paths_stay_inside_bundle():
     assert static_relpath("/") == "index.html"
     assert static_relpath("/static/style.css") == "style.css"

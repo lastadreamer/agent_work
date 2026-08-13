@@ -52,6 +52,8 @@ class PlaySession:
         self._net = None
         self._net_path = None
         self._error = ""
+        self._encoder = Encoder(self.cfg)
+        self._search: MCTS | None = None
 
     def new_game(
         self,
@@ -70,6 +72,7 @@ class PlaySession:
         self.board = Board()
         self._error = ""
         self._load_net()
+        self._bind_search()
         return self.state()
 
     def _load_net(self) -> None:
@@ -101,14 +104,35 @@ class PlaySession:
 
         return NetworkEvaluator(self._net, encoder, device="cpu")
 
-    def _encoder_for_current(self) -> Encoder:
-        enc = Encoder(self.cfg)
-        replay = Board()
-        enc.reset(replay)
-        for iccs in self.history:
-            replay.push_iccs(iccs)
-            enc.observe(replay)
-        return enc
+    def _bind_search(self) -> None:
+        """One MCTS tree for the whole game: descend on a move, retreat on undo."""
+        self._encoder = Encoder(self.cfg)
+        self._encoder.reset(self.board)
+        ev = self._evaluator(self._encoder)
+        self._search = MCTS(self.cfg, ev, encoder=self._encoder, seed=1)
+        self._search.ensure_expanded(self.board)
+        if self.red == "ai" or self.black == "ai":
+            self._search.run(
+                self.board,
+                simulations=self.simulations,
+                add_noise=False,
+                temperature=0.0,
+                reuse=True,
+            )
+
+    def _advance_tree(self, move: Move) -> None:
+        if self._search is None:
+            return
+        if not self._search.root.expanded:
+            self._search.ensure_expanded(self.board)
+        idx = self._encoder.move_index(self.board, move)
+        if not self._search.advance(idx):
+            self._search.reset()
+
+    def _retreat_tree(self, plies: int) -> None:
+        if self._search is None or plies <= 0:
+            return
+        self._search.retreat(plies)
 
     def _side_role(self, side: int | None = None) -> str:
         if side is None:
@@ -117,8 +141,10 @@ class PlaySession:
 
     def _rebuild(self) -> None:
         self.board = Board()
+        self._encoder.reset(self.board)
         for iccs in self.history:
             self.board.push_iccs(iccs)
+            self._encoder.observe(self.board)
 
     def move(self, iccs: str) -> dict:
         self._error = ""
@@ -133,8 +159,10 @@ class PlaySession:
         if not self.board.is_legal(mv):
             self._error = f"非法着法：{iccs}"
             return self.state()
+        self._advance_tree(mv)
         self.board.push(mv)
         self.history.append(mv.iccs())
+        self._encoder.observe(self.board)
         return self.state()
 
     def undo(self, plies: int = 1) -> dict:
@@ -142,8 +170,10 @@ class PlaySession:
         n = max(0, int(plies))
         if n == 0 or not self.history:
             return self.state()
+        n = min(n, len(self.history))
         del self.history[-n:]
         self._rebuild()
+        self._retreat_tree(n)
         return self.state()
 
     def undo_human_turn(self) -> dict:
@@ -151,11 +181,14 @@ class PlaySession:
         self._error = ""
         if not self.history:
             return self.state()
+        popped = 1
         self.history.pop()
         self._rebuild()
         if self.history and self._side_role() == "ai" and not self._terminal():
             self.history.pop()
+            popped += 1
             self._rebuild()
+        self._retreat_tree(popped)
         return self.state()
 
     def ai_move(self) -> dict:
@@ -166,20 +199,22 @@ class PlaySession:
         if self._side_role() != "ai":
             self._error = "当前不是机器走棋"
             return self.state()
-        enc = self._encoder_for_current()
-        ev = self._evaluator(enc)
-        mcts = MCTS(self.cfg, ev, encoder=enc, seed=len(self.history) + 1)
-        result = mcts.run(
+        if self._search is None:
+            self._bind_search()
+        result = self._search.run(
             self.board,
             simulations=self.simulations,
             add_noise=False,
             temperature=0.0,
+            reuse=True,
         )
         if result.move is None:
             self._error = "机器没有合法着"
             return self.state()
+        self._advance_tree(result.move)
         self.board.push(result.move)
         self.history.append(result.move.iccs())
+        self._encoder.observe(self.board)
         return self.state()
 
     def _terminal(self) -> bool:

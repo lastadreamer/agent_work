@@ -173,29 +173,44 @@ class MCTS:
         rng_seed = self.cfg["seed"] if seed is None else seed
         self.rng = np.random.default_rng(rng_seed)
         self.root = _Node()
+        self._ancestors: list[_Node] = []
 
     def reset(self) -> None:
         self.root = _Node()
+        self._ancestors = []
+
+    def ensure_expanded(self, board: Board) -> None:
+        if not self.root.expanded:
+            self._expand(self.root, board, self.encoder.past_for(board))
 
     def advance(self, action_index: int) -> bool:
-        """Keep the subtree of `action_index` as the new root after that move is played.
+        """Descend into the child of `action_index`. Parent stays reachable via retreat().
 
-        Returns True if the child existed. Otherwise starts a fresh root.
-        Do not persist this tree across games or network updates: N/Q/P are
-        only valid for the current position and the current evaluator.
+        Returns False and leaves the tree unchanged if that edge does not exist.
         """
         if (
             self.root.actions is None
             or self.root.child is None
             or self.root.actions.size == 0
         ):
-            self.root = _Node()
             return False
         hits = np.flatnonzero(self.root.actions == int(action_index))
         if hits.size == 0:
-            self.root = _Node()
             return False
+        self._ancestors.append(self.root)
         self.root = self.root.child[int(hits[0])]
+        return True
+
+    def retreat(self, plies: int = 1) -> bool:
+        """Move the root back to an ancestor. Too many plies discards the tree."""
+        plies = max(0, int(plies))
+        if plies == 0:
+            return True
+        if plies > len(self._ancestors):
+            self.reset()
+            return False
+        for _ in range(plies):
+            self.root = self._ancestors.pop()
         return True
 
     def _c_puct(self, n_sum: int) -> float:

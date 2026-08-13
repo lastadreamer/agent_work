@@ -137,11 +137,27 @@ def test_advance_reuses_subtree_visits():
     assert sum(second.visit_counts.values()) == warmed + 20
 
 
-def test_advance_unknown_action_starts_fresh():
+def test_advance_unknown_action_keeps_root():
     b = Board()
     m = _mcts(seed=1)
     m.run(b, simulations=8, add_noise=False, temperature=0, reuse=True)
+    root = m.root
     assert m.advance(ACTION_FROM_TO - 1) is False
+    assert m.root is root
+    assert m.root.expanded is True
+
+
+def test_retreat_returns_to_parent():
+    b = Board()
+    m = _mcts(seed=0)
+    first = m.run(b, simulations=40, add_noise=False, temperature=0, reuse=True)
+    parent = m.root
+    assert m.advance(first.action_index)
+    assert m.root is not parent
+    assert m.retreat(1) is True
+    assert m.root is parent
+    assert int(m.root.n.sum()) == 40
+    assert m.retreat(2) is False
     assert m.root.expanded is False
 
 
