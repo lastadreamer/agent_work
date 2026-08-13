@@ -51,6 +51,13 @@ class Encoder:
         self._current = board.copy()
         self._have_current = True
 
+    def past_for(self, board: Board) -> list[Board]:
+        """History boards to pass to encode_state for ``board`` (oldest first)."""
+        past = list(self._history)
+        if self._have_current and self._current is not None and self._current.hash() != board.hash():
+            past.append(self._current)
+        return past
+
     def tensor(self, board: Board | None = None, *, observe: bool = False):
         """Return float32 array shaped (C, 10, 9).
 
@@ -67,10 +74,7 @@ class Encoder:
             if self._current is None:
                 raise RuntimeError("Encoder.tensor() needs a board; call observe() or pass board=")
             return encode_state(self._current, self.spec, list(self._history))
-        past = list(self._history)
-        if self._have_current and self._current is not None and self._current.hash() != board.hash():
-            past.append(self._current)
-        return encode_state(board, self.spec, past)
+        return encode_state(board, self.spec, self.past_for(board))
 
     def flip(self, board: Board) -> bool:
         return bool(should_flip(board, self.spec))

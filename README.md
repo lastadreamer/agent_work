@@ -110,6 +110,28 @@ legal, probs, value = infer(net, enc, Board())
 
 网络是论文里的双头残差塔：`Conv → N × ResBlock → {policy 1×1+FC, value 1×1+FC+tanh}`。块数和通道在 `network.*`。
 
+## 阶段 5：MCTS
+
+搜索在 Python 里，走子/悔棋仍走 C++。一棵树对应一个 `Board`，不要跨线程共享。网络可以共享，但 `NetworkEvaluator` 要加锁。
+
+```python
+from xiangqi_engine import Board, Encoder, load_config
+from xiangqi_engine.mcts import MCTS, UniformEvaluator, NetworkEvaluator
+
+cfg = load_config()
+enc = Encoder(cfg)
+mcts = MCTS(cfg, UniformEvaluator(enc))          # 测搜索结构
+# mcts = MCTS(cfg, NetworkEvaluator(net, enc))   # 接上策略价值网
+result = mcts.run(Board(), add_noise=True, temperature=1.0)
+board = Board()
+board.push(result.move)
+# result.policy 是 8100 维的 π，给以后的训练用
+```
+
+每条模拟：用 PUCT 选到叶子 → 网络给出 \(p,v\)（终局用胜负，不调用网络）→ 沿路回传，**每一层把 \(v\) 取反**（零和）。根节点加 Dirichlet 噪声。`result.policy` 永远是 \(N/\sum N\)（训练标签 \(\pi\)）。温度只决定走出哪步：\(\tau=1\) 按 \(N^{1/\tau}\) 采样，\(\tau=0\) 取访问最多的着。
+
+超参数在 JSON 的 `mcts` 段：`simulations`、`c_puct`、`dirichlet_*`、`temperature`。
+
 ## 下一步（还没做）
 
-阶段 5：MCTS（PUCT）。超参数已经写在 JSON 的 `mcts` 段，但代码还没有。
+阶段 6–7：自我对弈采样 + 用 \((s,\pi,z)\) 训练。

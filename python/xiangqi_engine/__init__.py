@@ -29,6 +29,7 @@ from xiangqi_engine._xiangqi import (
 )
 from xiangqi_engine.config import load_config, spec_from_config
 from xiangqi_engine.encode import Encoder, encode_board
+from xiangqi_engine.mcts import MCTS, SearchResult, UniformEvaluator, terminal_value
 
 __all__ = [
     "ACTION_FROM_TO",
@@ -44,7 +45,10 @@ __all__ = [
     "Board",
     "EncodeSpec",
     "Encoder",
+    "MCTS",
     "Move",
+    "SearchResult",
+    "UniformEvaluator",
     "Outcome",
     "RandomPlayResult",
     "Terminal",
@@ -62,4 +66,5 @@ __all__ = [
     "should_flip",
     "spec_from_config",
     "square_to_iccs",
+    "terminal_value",
 ]
