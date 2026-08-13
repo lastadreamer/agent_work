@@ -1,0 +1,108 @@
+{
+  "_doc": "Free-style Gomoku (no Renju forbidden moves) on 15x15. Same AlphaZero loop as Xiangqi. Black moves first. Use this to check that the learner actually improves in a few hours.",
+  "game": "gomoku",
+  "seed": 42,
+  "device": "auto",
+
+  "paths": {
+    "checkpoint_dir": "checkpoints/gomoku",
+    "replay_dir": "data/replay/gomoku",
+    "log_dir": "logs/gomoku",
+    "best_checkpoint": "checkpoints/gomoku/best.pt",
+    "latest_checkpoint": "checkpoints/gomoku/latest.pt"
+  },
+
+  "board": {
+    "ranks": 15,
+    "files": 15,
+    "n_squares": 225
+  },
+
+  "encode": {
+    "perspective": "current_player",
+    "history_length": 1,
+    "planes": {
+      "our_pieces": true,
+      "opp_pieces": true,
+      "side_to_move": false,
+      "halfmove": false,
+      "fullmove": false,
+      "ones": false
+    }
+  },
+
+  "action": {
+    "encoding": "place",
+    "size": 225
+  },
+
+  "network": {
+    "blocks": 6,
+    "channels": 64,
+    "policy_head_channels": 16,
+    "value_head_channels": 16,
+    "value_hidden": 64
+  },
+
+  "mcts": {
+    "simulations": 200,
+    "c_puct": 1.5,
+    "c_puct_base": 0,
+    "c_puct_init": 1.25,
+    "dirichlet_alpha": 0.15,
+    "dirichlet_epsilon": 0.25,
+    "add_dirichlet_noise": true,
+    "reuse_tree": true,
+    "temperature": 1.0,
+    "temperature_moves": 12,
+    "max_game_plies": 225
+  },
+
+  "selfplay": {
+    "n_games_per_iter": 128,
+    "n_workers": 32,
+    "max_plies": 225,
+    "device": "auto",
+    "gpus": 4
+  },
+
+  "replay": {
+    "capacity": 200000,
+    "min_size": 4096
+  },
+
+  "train": {
+    "optimizer": "adam",
+    "lr": 0.001,
+    "momentum": 0.9,
+    "weight_decay": 0.0001,
+    "batch_size": 1024,
+    "epochs_per_iter": 1,
+    "batches_per_iter": 400,
+    "value_loss_weight": 1.0,
+    "policy_loss_weight": 1.0,
+    "grad_clip": 1.0,
+    "lr_schedule": "constant"
+  },
+
+  "eval": {
+    "n_games": 16,
+    "mcts_simulations": 100,
+    "win_rate_threshold": 0.55
+  },
+
+  "loop": {
+    "n_iterations": 50,
+    "save_every": 1,
+    "eval_every": 2
+  },
+
+  "play": {
+    "host": "127.0.0.1",
+    "port": 8766,
+    "simulations": 200,
+    "checkpoint": "",
+    "red": "ai",
+    "black": "human"
+  }
+}

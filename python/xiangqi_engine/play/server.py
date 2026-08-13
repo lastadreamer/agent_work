@@ -11,15 +11,16 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from xiangqi_engine.config import deepcopy_config, load_config
+from xiangqi_engine.game import game_name
 from xiangqi_engine.play.session import PlaySession
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
-def static_relpath(url_path: str) -> str | None:
+def static_relpath(url_path: str, game: str = "xiangqi") -> str | None:
     """Map a GET path to a file under STATIC_DIR, or None if not a static request."""
     if url_path == "/":
-        return "index.html"
+        return "gomoku.html" if game == "gomoku" else "index.html"
     if url_path.startswith("/static/"):
         rel = url_path[len("/static/") :]
     else:
@@ -60,7 +61,7 @@ class _Handler(BaseHTTPRequestHandler):
             with self.lock:
                 self._json(self.session.state())
             return
-        rel = static_relpath(path)
+        rel = static_relpath(path, game_name(self.session.cfg))
         if rel is None:
             self._send(404, b"not found", "text/plain")
             return
@@ -130,10 +131,17 @@ def main(argv: list[str] | None = None) -> None:
     play = cfg.get("play", {})
     host = args.host or play.get("host", "127.0.0.1")
     port = int(args.port or play.get("port", 8765))
-    session = PlaySession(cfg)
+    if game_name(cfg) == "gomoku":
+        from xiangqi_engine.play.gomoku_session import GomokuPlaySession
+
+        session = GomokuPlaySession(cfg)
+        default_red, default_black = "ai", "human"
+    else:
+        session = PlaySession(cfg)
+        default_red, default_black = "human", "ai"
     session.new_game(
-        red=play.get("red", "human"),
-        black=play.get("black", "ai"),
+        red=play.get("red", default_red),
+        black=play.get("black", default_black),
         simulations=args.simulations,
         checkpoint=args.checkpoint if args.checkpoint is not None else play.get("checkpoint", ""),
     )

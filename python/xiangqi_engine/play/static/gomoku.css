@@ -1,0 +1,59 @@
+:root {
+  --line: #6b4f2a;
+  --wood: #d8b56a;
+  --ink: #1c140c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Songti SC", "Noto Serif SC", serif;
+  color: var(--ink);
+  background: #f4efe4;
+}
+header { padding: 1rem 1.5rem 0; }
+h1 { margin: 0; font-size: 1.6rem; }
+.sub { margin: 0.3rem 0 0; color: #5c4a32; }
+main {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.status { margin-bottom: 0.6rem; font-weight: 600; }
+.board {
+  display: grid;
+  background: var(--wood);
+  border: 8px solid #8a6230;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 22px;
+  min-height: 22px;
+}
+.cell::before, .cell::after {
+  content: "";
+  position: absolute;
+  background: var(--line);
+}
+.cell::before { left: 0; right: 0; top: 50%; height: 1px; }
+.cell::after { top: 0; bottom: 0; left: 50%; width: 1px; }
+.cell.edge-n::before { top: 50%; }
+.stone {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  z-index: 1;
+}
+.stone.black { background: radial-gradient(circle at 30% 30%, #555, #111); }
+.stone.white { background: radial-gradient(circle at 30% 30%, #fff, #c8c8c8); border: 1px solid #888; }
+.cell.legal { cursor: pointer; }
+.cell.legal:hover { background: rgba(0,0,0,0.08); }
+.cell.last .stone { outline: 2px solid #c0392b; outline-offset: 1px; }
+.panel { min-width: 260px; }
+label, button, input, select { display: block; width: 100%; margin: 0.35rem 0; }
+.row { display: flex; gap: 0.4rem; }
+.row button { width: auto; flex: 1; }
+pre { white-space: pre-wrap; font-size: 0.85rem; }

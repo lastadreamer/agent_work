@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 
-from xiangqi_engine._xiangqi import ACTION_FROM_TO
 from xiangqi_engine.config import Cfg, load_config
 
 
@@ -34,6 +33,7 @@ class ReplayBuffer:
         self.cfg = cfg if cfg is not None else load_config()
         cap = int(self.cfg["replay"]["capacity"] if capacity is None else capacity)
         self.capacity = cap
+        self.action_size = int(self.cfg["action"]["size"])
         self._items: deque[Sample] = deque(maxlen=cap)
 
     def __len__(self) -> int:
@@ -55,7 +55,7 @@ class ReplayBuffer:
         n = min(batch_size, len(self._items))
         picks = rng.choice(len(self._items), size=n, replace=False)
         states = np.stack([self._items[i].state for i in picks], axis=0)
-        policies = np.zeros((n, ACTION_FROM_TO), dtype=np.float32)
+        policies = np.zeros((n, self.action_size), dtype=np.float32)
         values = np.empty(n, dtype=np.float32)
         for row, i in enumerate(picks):
             s = self._items[i]

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>五子棋对弈 · Gomoku</title>
+  <link rel="stylesheet" href="/static/gomoku.css" />
+</head>
+<body>
+  <header>
+    <h1>五子棋对弈</h1>
+    <p class="sub">自由五子（无禁手）· 黑先 · 和象棋共用同一套 AlphaZero 循环</p>
+  </header>
+  <main>
+    <section class="board-wrap">
+      <div id="status" class="status">加载中…</div>
+      <div id="board" class="board" aria-label="gomoku board"></div>
+    </section>
+    <aside class="panel">
+      <h2>新对局</h2>
+      <label>模式
+        <select id="mode">
+          <option value="hh">人人</option>
+          <option value="hb" selected>人机（你执黑）</option>
+          <option value="hr">人机（你执白）</option>
+          <option value="aa">机机</option>
+        </select>
+      </label>
+      <label>权重（空=均匀 MCTS）
+        <input id="checkpoint" type="text" placeholder="checkpoints/gomoku/best.pt" />
+      </label>
+      <label>MCTS 模拟次数
+        <input id="simulations" type="number" min="1" max="8000" value="80" />
+      </label>
+      <button id="btn-new" type="button">开新局</button>
+      <h2>操作</h2>
+      <div class="row">
+        <button id="btn-undo" type="button">悔一步</button>
+        <button id="btn-undo-turn" type="button">悔一回合</button>
+      </div>
+      <div class="row">
+        <button id="btn-ai" type="button">引擎走一步</button>
+        <button id="btn-auto" type="button">机机自动</button>
+      </div>
+      <h2>局面</h2>
+      <pre id="info"></pre>
+    </aside>
+  </main>
+  <script src="/static/gomoku.js"></script>
+</body>
+</html>

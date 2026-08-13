@@ -13,22 +13,12 @@ from typing import Protocol
 
 import numpy as np
 
-from xiangqi_engine._xiangqi import (
-    ACTION_FROM_TO,
-    BLACK,
-    RED,
-    Board,
-    Outcome,
-    encode_state,
-    index_to_move,
-    legal_indices,
-    should_flip,
-)
-from xiangqi_engine.config import Cfg, load_config, spec_from_config
+from xiangqi_engine._xiangqi import BLACK, RED, Outcome
+from xiangqi_engine.config import Cfg, load_config
 from xiangqi_engine.encode import Encoder
 
 
-def terminal_value(board: Board) -> float | None:
+def terminal_value(board) -> float | None:
     """Value for the player to move, or None if the game is still going."""
     term = board.terminal()
     if term.outcome == Outcome.ONGOING:
@@ -42,7 +32,7 @@ def terminal_value(board: Board) -> float | None:
 
 class Evaluator(Protocol):
     def evaluate(
-        self, board: Board, history: list[Board]
+        self, board, history: list
     ) -> tuple[list[int], np.ndarray, float]:
         """Return (legal action indices, priors over those actions, value)."""
 
@@ -53,9 +43,9 @@ class UniformEvaluator:
     def __init__(self, encoder: Encoder):
         self.encoder = encoder
 
-    def evaluate(self, board: Board, history: list[Board]) -> tuple[list[int], np.ndarray, float]:
+    def evaluate(self, board, history: list) -> tuple[list[int], np.ndarray, float]:
         del history
-        legal = [int(i) for i in legal_indices(board, self.encoder.spec)]
+        legal = [int(i) for i in self.encoder.legal_action_indices(board)]
         if not legal:
             return [], np.zeros(0, dtype=np.float64), 0.0
         prior = np.full(len(legal), 1.0 / len(legal), dtype=np.float64)
@@ -72,13 +62,12 @@ class NetworkEvaluator:
         self.lock = lock
         self._torch = torch
 
-    def evaluate(self, board: Board, history: list[Board]) -> tuple[list[int], np.ndarray, float]:
+    def evaluate(self, board, history: list) -> tuple[list[int], np.ndarray, float]:
         torch = self._torch
-        spec = self.encoder.spec
-        legal = [int(i) for i in legal_indices(board, spec)]
+        legal = [int(i) for i in self.encoder.legal_action_indices(board)]
         if not legal:
             return [], np.zeros(0, dtype=np.float64), 0.0
-        x = encode_state(board, spec, history)
+        x = self.encoder.encode(board, history)
         tensor = torch.from_numpy(np.ascontiguousarray(x)).unsqueeze(0).to(self.device)
         ctx = self.lock if self.lock is not None else nullcontext()
         with ctx:
@@ -159,7 +148,6 @@ class MCTS:
         else:
             self.encoder = Encoder(self.cfg)
         self.evaluator = evaluator
-        self.spec = spec_from_config(self.cfg)
         mcts = self.cfg["mcts"]
         self.simulations = int(mcts["simulations"])
         self.c_puct = float(mcts["c_puct"])
@@ -179,7 +167,7 @@ class MCTS:
         self.root = _Node()
         self._ancestors = []
 
-    def ensure_expanded(self, board: Board) -> None:
+    def ensure_expanded(self, board) -> None:
         if not self.root.expanded:
             self._expand(self.root, board, self.encoder.past_for(board))
 
@@ -225,7 +213,7 @@ class MCTS:
         eps = self.dirichlet_epsilon
         node.prior = (1.0 - eps) * node.prior + eps * noise
 
-    def _expand(self, node: _Node, board: Board, history: list[Board]) -> float:
+    def _expand(self, node: _Node, board, history: list) -> float:
         tv = terminal_value(board)
         if tv is not None:
             node.mark_terminal(tv)
@@ -239,18 +227,17 @@ class MCTS:
         node.expand(legal, prior)
         return float(value)
 
-    def _simulate(self, board: Board, game_past: list[Board]) -> None:
+    def _simulate(self, board, game_past: list) -> None:
         node = self.root
         path: list[tuple[_Node, int]] = []
-        search_hist: list[Board] = []
+        search_hist: list = []
         while node.expanded and node.actions is not None and node.actions.size > 0:
             n_sum = int(node.n.sum()) if node.n is not None else 0
             i = node.select(self._c_puct(n_sum))
             path.append((node, i))
             if self.need_history:
                 search_hist.append(board.copy())
-            flip = bool(should_flip(board, self.spec))
-            board.make_move(index_to_move(int(node.actions[i]), flip))
+            self.encoder.play(board, int(node.actions[i]))
             node = node.child[i]
 
         history = game_past + search_hist
@@ -269,7 +256,7 @@ class MCTS:
 
     def run(
         self,
-        board: Board,
+        board,
         simulations: int | None = None,
         add_noise: bool | None = None,
         temperature: float | None = None,
@@ -291,7 +278,7 @@ class MCTS:
             self._apply_dirichlet(self.root)
 
         if self.root.terminal_v is not None or self.root.actions is None or self.root.actions.size == 0:
-            policy = [0.0] * ACTION_FROM_TO
+            policy = [0.0] * int(self.encoder.action_size)
             return SearchResult(
                 move=None,
                 action_index=-1,
@@ -310,10 +297,9 @@ class MCTS:
 
         counts = {int(a): int(n) for a, n in zip(self.root.actions, self.root.n)}
         # Training target π is always N/ΣN. Temperature only chooses the played move.
-        policy = _policy_from_counts(self.root.actions, self.root.n, ACTION_FROM_TO)
+        policy = _policy_from_counts(self.root.actions, self.root.n, int(self.encoder.action_size))
         action_index = _sample_action(self.root.actions, self.root.n, tau, self.rng)
-        flip = bool(should_flip(board, self.spec))
-        move = index_to_move(action_index, flip)
+        move = self.encoder.move_from_index(board, action_index)
         n_sum = float(self.root.n.sum())
         root_value = float(self.root.w.sum() / n_sum) if n_sum else 0.0
         return SearchResult(

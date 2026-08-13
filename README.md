@@ -136,6 +136,23 @@ xiangqi-play --checkpoint checkpoints/best.pt --simulations 200
 
 `config/default.json` 的 `play` 段只给这个界面用（主机、端口、默认红黑角色、对弈模拟次数）。训练仍读 `mcts.simulations`。
 
+## 五子棋
+
+和象棋共用同一套自我对弈 / 训练 / 评估循环，棋盘和着法分开。自由五子（五连即胜，无禁手），黑先。默认象棋路径不变。
+
+```bash
+# 本机冒烟
+python -m xiangqi_engine.loop --config config/gomoku_smoke.json
+
+# 正式五子棋（15×15，比象棋快，用来确认算法在学）
+python -m xiangqi_engine.loop --config config/gomoku.json
+
+# 对弈，默认端口 8766
+python -m xiangqi_engine.play --config config/gomoku.json
+```
+
+权重和日志写在 `checkpoints/gomoku`、`logs/gomoku`，不会覆盖象棋的 `checkpoints/best.pt`。
+
 ## 配置
 
 改行为优先改 JSON，不要改代码。常用段：

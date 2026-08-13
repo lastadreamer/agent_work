@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from xiangqi_engine._xiangqi import ACTION_FROM_TO, EncodeSpec
+from xiangqi_engine.game import game_name
 
 _DOC_PREFIX = "_"
 
@@ -80,14 +81,26 @@ def validate_config(cfg: Mapping[str, Any]) -> None:
         raise ValueError("encode.perspective must be 'current_player' or 'absolute'")
     if int(encode["history_length"]) < 1:
         raise ValueError("encode.history_length must be >= 1")
-    if action.get("encoding") != "from_to":
-        raise ValueError("only action.encoding='from_to' is implemented")
-    if int(action["size"]) != ACTION_FROM_TO:
-        raise ValueError(f"action.size must be {ACTION_FROM_TO} for from_to encoding")
     net = cfg["network"]
     for key in ("blocks", "channels", "policy_head_channels", "value_head_channels", "value_hidden"):
         if int(net[key]) < 1:
             raise ValueError(f"network.{key} must be >= 1")
+    if game_name(cfg) == "gomoku":
+        ranks = int(cfg["board"]["ranks"])
+        files = int(cfg["board"]["files"])
+        if ranks != files:
+            raise ValueError("gomoku board must be square")
+        if ranks < 5:
+            raise ValueError("gomoku board size must be >= 5")
+        if action.get("encoding") != "place":
+            raise ValueError("gomoku action.encoding must be 'place'")
+        if int(action["size"]) != ranks * files:
+            raise ValueError(f"gomoku action.size must be {ranks * files}")
+        return
+    if action.get("encoding") != "from_to":
+        raise ValueError("only action.encoding='from_to' is implemented")
+    if int(action["size"]) != ACTION_FROM_TO:
+        raise ValueError(f"action.size must be {ACTION_FROM_TO} for from_to encoding")
 
 
 def spec_from_config(cfg: Mapping[str, Any]) -> EncodeSpec:
@@ -108,6 +121,10 @@ def spec_from_config(cfg: Mapping[str, Any]) -> EncodeSpec:
 
 
 def n_input_planes_from_config(cfg: Mapping[str, Any]) -> int:
+    if game_name(cfg) == "gomoku":
+        from xiangqi_engine.gomoku.encode import n_gomoku_planes
+
+        return int(n_gomoku_planes(cfg))  # type: ignore[arg-type]
     from xiangqi_engine._xiangqi import n_input_planes
 
     return int(n_input_planes(spec_from_config(cfg)))

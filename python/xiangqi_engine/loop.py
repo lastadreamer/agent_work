@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 
 from xiangqi_engine.config import Cfg, deepcopy_config, load_config, resolve_device
-from xiangqi_engine.encode import Encoder
 from xiangqi_engine.evaluate import play_match
+from xiangqi_engine.game import game_name, make_encoder
 from xiangqi_engine.mcts import NetworkEvaluator
 from xiangqi_engine.progress import eta_seconds, finish_clock, format_hms
 from xiangqi_engine.replay import ReplayBuffer
@@ -130,7 +130,7 @@ def run_iteration(
             state_dict=_cpu_state_dict(net),
         )
     else:
-        enc = Encoder(cfg)
+        enc = make_encoder(cfg)
         ev = NetworkEvaluator(net, enc, device=device)
         games = play_games(
             cfg,
@@ -187,7 +187,7 @@ def run_iteration(
             f"× {cfg['eval']['mcts_simulations']} sims",
             flush=True,
         )
-        enc = Encoder(cfg)
+        enc = make_encoder(cfg)
         chal = NetworkEvaluator(net, enc, device=device)
         hold = NetworkEvaluator(best, enc, device=device)
         match = play_match(cfg, chal, hold, seed=int(cfg["seed"]) + iteration)
@@ -223,7 +223,7 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
     device = resolve_device(cfg)
     n_iters = int(cfg["loop"]["n_iterations"])
     print(
-        f"loop start device={device} "
+        f"loop start game={game_name(cfg)} device={device} "
         f"net={cfg['network']['blocks']}x{cfg['network']['channels']} "
         f"selfplay={cfg['selfplay']['n_games_per_iter']} games "
         f"x {cfg['selfplay']['n_workers']} workers "

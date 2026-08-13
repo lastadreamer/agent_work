@@ -1,6 +1,7 @@
 from xiangqi_engine import START_FEN, load_config
 from xiangqi_engine.config import deepcopy_config
 from xiangqi_engine.play.server import static_relpath
+from xiangqi_engine.play.gomoku_session import GomokuPlaySession
 from xiangqi_engine.play.session import PlaySession
 
 
@@ -103,7 +104,26 @@ def test_one_tree_descends_on_move_and_retreats_on_undo():
 
 def test_static_paths_stay_inside_bundle():
     assert static_relpath("/") == "index.html"
+    assert static_relpath("/", "gomoku") == "gomoku.html"
     assert static_relpath("/static/style.css") == "style.css"
     assert static_relpath("/static/app.js") == "app.js"
     assert static_relpath("/static/../session.py") is None
     assert static_relpath("/app.js") == "app.js"
+
+
+def test_gomoku_session_place_and_undo():
+    cfg = deepcopy_config(load_config("config/gomoku_smoke.json"))
+    cfg["mcts"]["simulations"] = 2
+    s = GomokuPlaySession(cfg)
+    s.new_game(red="human", black="human", simulations=2, checkpoint="")
+    st = s.state()
+    assert st["game"] == "gomoku"
+    assert st["size"] == 9
+    assert st["side"] == "black"
+    assert "e4" in st["legal"]
+    s.move("e4")
+    assert s.history == ["e4"]
+    assert s.state()["side"] == "white"
+    s.undo(1)
+    assert s.history == []
+    assert s.state()["fen"] == s.board.fen()

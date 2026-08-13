@@ -9,9 +9,9 @@ from typing import Any
 
 import numpy as np
 
-from xiangqi_engine._xiangqi import BLACK, RED, Board, Outcome
+from xiangqi_engine._xiangqi import RED, Outcome
 from xiangqi_engine.config import Cfg, load_config
-from xiangqi_engine.encode import Encoder
+from xiangqi_engine.game import make_board, make_encoder
 from xiangqi_engine.mcts import MCTS, UniformEvaluator, terminal_value
 from xiangqi_engine.progress import Progress
 from xiangqi_engine.replay import Sample, sample_from_dense
@@ -36,15 +36,15 @@ def outcome_to_red_z(outcome: Outcome) -> float:
 def play_game(
     cfg: Cfg | None = None,
     evaluator=None,
-    encoder: Encoder | None = None,
+    encoder=None,
     seed: int = 0,
     simulations: int | None = None,
 ) -> GameRecord:
     cfg = cfg if cfg is not None else load_config()
-    enc = encoder if encoder is not None else Encoder(cfg)
+    enc = encoder if encoder is not None else make_encoder(cfg)
     if evaluator is None:
         evaluator = UniformEvaluator(enc)
-    board = Board()
+    board = make_board(cfg)
     enc.reset(board)
     mcts = MCTS(cfg, evaluator, encoder=enc, seed=seed)
     max_plies = int(cfg["selfplay"]["max_plies"])
@@ -103,12 +103,12 @@ def play_games(
     seeds = [seed + i for i in range(n_games)]
     progress = Progress("self-play", n_games)
     if n_workers <= 1:
-        enc = Encoder(cfg)
+        enc = make_encoder(cfg)
         ev = evaluator if evaluator is not None else UniformEvaluator(enc)
         games = []
         plies = 0
         for i, s in enumerate(seeds, start=1):
-            rec = play_game(cfg, ev, Encoder(cfg), s, simulations)
+            rec = play_game(cfg, ev, make_encoder(cfg), s, simulations)
             games.append(rec)
             plies += rec.plies
             progress.update(i, extra=f"avg {plies / i:.0f} plies/game")
@@ -165,7 +165,7 @@ def selfplay_worker_device(cfg: Cfg | dict[str, Any], worker_id: int = 0) -> str
 
 def _init_worker(cfg_dict: dict, state_dict, simulations, counter) -> None:
     from xiangqi_engine.config import Cfg
-    from xiangqi_engine.encode import Encoder
+    from xiangqi_engine.game import make_encoder
 
     try:
         import torch
@@ -181,7 +181,7 @@ def _init_worker(cfg_dict: dict, state_dict, simulations, counter) -> None:
     _WORKER["cfg"] = cfg
     _WORKER["simulations"] = simulations
     _WORKER["state_dict"] = state_dict
-    _WORKER["encoder_factory"] = lambda: Encoder(cfg)
+    _WORKER["encoder_factory"] = lambda: make_encoder(cfg)
     _WORKER["device"] = selfplay_worker_device(cfg, worker_id)
 
 

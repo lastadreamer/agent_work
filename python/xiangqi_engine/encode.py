@@ -58,6 +58,13 @@ class Encoder:
             past.append(self._current)
         return past
 
+    def encode(self, board: Board, history: Iterable[Board] | None = None):
+        hist = list(self.past_for(board) if history is None else history)
+        return encode_state(board, self.spec, hist)
+
+    def play(self, board: Board, index: int) -> None:
+        board.make_move(self.move_from_index(board, index))
+
     def tensor(self, board: Board | None = None, *, observe: bool = False):
         """Return float32 array shaped (C, 10, 9).
 
