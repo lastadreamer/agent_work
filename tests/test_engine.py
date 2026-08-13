@@ -196,14 +196,14 @@ def test_threefold_draw():
 
 def test_rook_chases_unprotected_horse():
     # Red rook on b8 attacks black horse on b9; horse has no protector.
-    b = Board("1n7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    b = Board("1n6k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
     assert b.is_chasing(RED)
     assert not b.is_chasing(BLACK)
 
 
 def test_protected_piece_is_not_chase():
     # Same rook-vs-horse, but a black chariot on a9 protects the horse.
-    b = Board("rn7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    b = Board("rn6k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
     assert not b.is_chasing(RED)
 
 
@@ -235,7 +235,7 @@ def test_perpetual_check_loses():
 
 def test_perpetual_chase_loses():
     # Red rook chases an unprotected horse: b9-d8 / b8-d7 and back.
-    b = Board("1n7k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
+    b = Board("1n6k/1R7/9/9/9/9/9/9/9/4K4 b - - 0 1")
     cycle = ["b9d8", "b8d7", "d8b9", "d7b8"]
     for _ in range(2):
         for iccs in cycle:
