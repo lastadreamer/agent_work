@@ -383,7 +383,6 @@ bool Board::attacks_from(Square from, Square to) const {
                 }
                 break;
             }
-        }
     }
     return false;
 }
