@@ -102,6 +102,16 @@
     "eval_every": 1
   },
 
+  "play": {
+    "_doc": "Local visualization UI only (python -m xiangqi_engine.play). Does not affect self-play, training, or MCTS defaults used by the loop.",
+    "host": "127.0.0.1",
+    "port": 8765,
+    "simulations": 80,
+    "checkpoint": "",
+    "red": "human",
+    "black": "ai"
+  },
+
   "rules": {
     "_doc": "Must stay in sync with the C++ engine. repetition_draw_count 3 and no_progress_halfmoves 120 are the current simplified draw rules.",
     "repetition_draw_count": 3,

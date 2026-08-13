@@ -163,3 +163,23 @@ train_batches(net, buffer, cfg)
 多进程采样：`selfplay.n_workers > 1` 时每个进程自己的 `Board` / 编码器 / 搜索树，网络用 CPU `state_dict` 拷贝。不要在进程间共享一块棋盘。
 
 所有旋钮仍在 JSON：`selfplay`、`replay`、`train`、`eval`、`loop`。
+
+## 可视化对弈
+
+独立的本地网页，**不改引擎、编码、MCTS 和训练循环**。只是把同一套 `Board` / 搜索拿来点着、悔棋。
+
+```bash
+# 默认人人机（你执红）。权重路径空则用均匀先验 MCTS，不需要已训练网络。
+python -m xiangqi_engine.play
+# 或：xiangqi-play --checkpoint checkpoints/best.pt --simulations 200
+```
+
+浏览器打开提示的地址（默认 `http://127.0.0.1:8765`）。
+
+| 模式 | 行为 |
+| --- | --- |
+| 人人 | 双方点棋 |
+| 人机（你执红 / 执黑） | 轮到引擎时自动走；无权重时是均匀 MCTS |
+| 机机 | 点「机机自动」连续走，或逐步点「引擎走一步」 |
+
+悔一步撤 1 个半回合；悔一回合在人机里会连着撤回引擎的应着，直到又轮到人。`config/default.json` 的 `play` 段只给这个界面用（端口、默认角色、对弈模拟次数），训练仍读 `mcts.simulations`。

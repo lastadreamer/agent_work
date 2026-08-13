@@ -16,6 +16,10 @@ train = ["torch", "numpy"]
 
 [project.scripts]
 xiangqi-train = "xiangqi_engine.loop:main"
+xiangqi-play = "xiangqi_engine.play.server:main"
+
+[tool.setuptools.package-data]
+xiangqi_engine = ["play/static/*"]
 
 [tool.setuptools]
 package-dir = {"" = "python"}

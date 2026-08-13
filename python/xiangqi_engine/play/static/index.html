@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>象棋对弈 · Xiangqi Play</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>象棋对弈</h1>
+    <p class="sub">可视化棋盘 · 人人 / 人机 / 机机 · 不改训练管线</p>
+  </header>
+
+  <main>
+    <section class="board-wrap">
+      <div id="status" class="status">加载中…</div>
+      <div class="board-row">
+        <div class="ranks" aria-hidden="true">
+          <span>9</span><span>8</span><span>7</span><span>6</span><span>5</span>
+          <span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
+        </div>
+        <div class="board-frame">
+          <div id="board" class="board" aria-label="xiangqi board"></div>
+          <div class="river-text" aria-hidden="true"><span>楚 河</span><span>汉 界</span></div>
+        </div>
+      </div>
+      <div class="files">
+        <span></span>
+        <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span>
+        <span>f</span><span>g</span><span>h</span><span>i</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <h2>新对局</h2>
+      <label>模式
+        <select id="mode">
+          <option value="hh">人人</option>
+          <option value="hr" selected>人机（你执红）</option>
+          <option value="hb">人机（你执黑）</option>
+          <option value="aa">机机</option>
+        </select>
+      </label>
+      <label>权重（空=均匀 MCTS）
+        <input id="checkpoint" type="text" placeholder="checkpoints/best.pt" />
+      </label>
+      <label>MCTS 模拟次数
+        <input id="simulations" type="number" min="1" max="8000" value="80" />
+      </label>
+      <button id="btn-new" type="button">开新局</button>
+
+      <h2>操作</h2>
+      <div class="row">
+        <button id="btn-undo" type="button">悔一步</button>
+        <button id="btn-undo-turn" type="button">悔一回合</button>
+      </div>
+      <div class="row">
+        <button id="btn-ai" type="button">引擎走一步</button>
+        <button id="btn-auto" type="button">机机自动</button>
+      </div>
+      <p class="hint">人人：双方点棋。人机：轮到引擎会自动走。机机：点「机机自动」或逐步点「引擎走一步」。悔一回合在人机里会连着撤回引擎的应着。</p>
+
+      <h2>局面</h2>
+      <pre id="info"></pre>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
