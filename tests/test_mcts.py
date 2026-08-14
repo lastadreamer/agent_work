@@ -15,7 +15,10 @@ MATE_MOVE = "i0i9"
 
 
 def _cfg():
-    return deepcopy_config(load_config())
+    cfg = deepcopy_config(load_config())
+    # Sequential search (no virtual loss) so concentration tests stay valid.
+    cfg["mcts"]["batch_size"] = 1
+    return cfg
 
 
 def _mcts(cfg=None, encoder=None, seed=0) -> MCTS:
@@ -193,4 +196,128 @@ def test_network_evaluator_smoke(simulations):
     )
     assert result.move is not None
     assert abs(sum(result.policy) - 1.0) < 1e-5
+    del torch
+
+
+def _batched_cfg(batch_size: int = 8, virtual_loss: int = 1):
+    cfg = _cfg()
+    cfg["mcts"]["batch_size"] = batch_size
+    cfg["mcts"]["virtual_loss"] = virtual_loss
+    return cfg
+
+
+def test_batched_search_restores_board():
+    cfg = _batched_cfg(8)
+    b = Board()
+    fen = b.fen()
+    ply = b.ply()
+    result = _mcts(cfg).run(b, simulations=32, add_noise=False, temperature=0)
+    assert b.fen() == fen
+    assert b.ply() == ply
+    assert result.move is not None
+    assert b.is_legal(result.move)
+    assert sum(result.visit_counts.values()) == 32
+
+
+def test_batched_visit_counts_sum_to_simulations():
+    cfg = _batched_cfg(8)
+    result = _mcts(cfg).run(Board(), simulations=40, add_noise=False, temperature=1.0)
+    assert sum(result.visit_counts.values()) == 40
+    assert abs(sum(result.policy) - 1.0) < 1e-6
+
+
+def test_batched_mate_in_one_still_wins():
+    cfg = _batched_cfg(8)
+    b = Board(MATE_IN_ONE)
+    enc = Encoder(cfg)
+    result = _mcts(cfg, encoder=enc).run(b, simulations=64, add_noise=False, temperature=0)
+    after = b.copy()
+    after.push(result.move)
+    assert after.legal_moves() == []
+    assert after.terminal().outcome == Outcome.RED_WIN
+    assert sum(result.visit_counts.values()) == 64
+
+
+def test_batched_search_calls_evaluate_many():
+    cfg = _batched_cfg(8)
+    enc = Encoder(cfg)
+
+    class CountingEval(UniformEvaluator):
+        def __init__(self, encoder):
+            super().__init__(encoder)
+            self.batch_sizes: list[int] = []
+
+        def evaluate_many(self, encodings, legal_lists):
+            self.batch_sizes.append(len(legal_lists))
+            return super().evaluate_many(encodings, legal_lists)
+
+    ev = CountingEval(enc)
+    MCTS(cfg, ev, encoder=enc, seed=0).run(
+        Board(), simulations=16, add_noise=False, temperature=0
+    )
+    assert ev.batch_sizes
+    assert max(ev.batch_sizes) > 1
+    assert max(ev.batch_sizes) <= 8
+
+
+def test_batched_advance_reuses_subtree_visits():
+    cfg = _batched_cfg(8)
+    b = Board()
+    m = _mcts(cfg, seed=0)
+    first = m.run(b, simulations=40, add_noise=False, temperature=0, reuse=True)
+    kept = m.advance(first.action_index)
+    assert kept
+    b.push(first.move)
+    warmed = int(m.root.n.sum()) if m.root.expanded and m.root.n is not None else 0
+    second = m.run(b, simulations=20, add_noise=False, temperature=0, reuse=True)
+    assert second.move is not None
+    assert sum(second.visit_counts.values()) == warmed + 20
+
+
+def test_batched_history_length_two_search():
+    cfg = _batched_cfg(4)
+    cfg["encode"]["history_length"] = 2
+    enc = Encoder(cfg)
+    start = Board()
+    enc.observe(start)
+    moved = start.copy()
+    moved.push(Move.from_iccs("b2e2"))
+    result = _mcts(cfg, encoder=enc).run(moved, simulations=12, add_noise=False, temperature=0)
+    assert result.n_simulations == 12
+    assert moved.side_to_move() == 1
+    assert sum(result.visit_counts.values()) == 12
+
+
+@pytest.mark.parametrize("simulations", [8, 16])
+def test_network_evaluator_batched_smoke(simulations):
+    torch = pytest.importorskip("torch")
+    from xiangqi_engine.mcts import NetworkEvaluator
+    from xiangqi_engine.network import PolicyValueNet
+
+    cfg = _batched_cfg(8)
+    cfg["network"]["blocks"] = 1
+    cfg["network"]["channels"] = 8
+    cfg["network"]["policy_head_channels"] = 4
+    cfg["network"]["value_head_channels"] = 4
+    cfg["network"]["value_hidden"] = 16
+    enc = Encoder(cfg)
+    net = PolicyValueNet(cfg).eval()
+    ev = NetworkEvaluator(net, enc, device="cpu", lock=threading.Lock())
+    b = Board()
+    fen = b.fen()
+    result = MCTS(cfg, ev, encoder=enc, seed=0).run(
+        b, simulations=simulations, add_noise=False, temperature=0
+    )
+    assert b.fen() == fen
+    assert result.move is not None
+    assert sum(result.visit_counts.values()) == simulations
+    assert abs(sum(result.policy) - 1.0) < 1e-5
+
+    x = enc.encode(b)
+    legal = enc.legal_action_indices(b)
+    many = ev.evaluate_many([x, x], [legal, legal])
+    one = ev.evaluate(b, [])
+    assert len(many) == 2
+    assert np.allclose(many[0][0], one[1])
+    assert abs(many[0][1] - one[2]) < 1e-5
     del torch

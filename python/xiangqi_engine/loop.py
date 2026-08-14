@@ -123,7 +123,8 @@ def run_iteration(
     print(
         f"iter {iteration}: self-play starting "
         f"{cfg['selfplay']['n_games_per_iter']} games × {n_workers} workers "
-        f"× {cfg['mcts']['simulations']} sims (frozen best)",
+        f"× {cfg['mcts']['simulations']} sims "
+        f"× batch {cfg['mcts'].get('batch_size', 1)} (frozen best)",
         flush=True,
     )
     if n_workers > 1:
@@ -232,6 +233,7 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
         f"selfplay={cfg['selfplay']['n_games_per_iter']} games "
         f"x {cfg['selfplay']['n_workers']} workers "
         f"sims={cfg['mcts']['simulations']} "
+        f"mcts_batch={cfg['mcts'].get('batch_size', 1)} "
         f"gate=best "
         f"iters={n_iters}",
         flush=True,

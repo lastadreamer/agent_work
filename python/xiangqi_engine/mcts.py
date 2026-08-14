@@ -2,6 +2,11 @@
 
 Each search owns its Board (make/unmake). Do not share one MCTS or one Board
 across threads. A network may be shared if NetworkEvaluator is given a lock.
+
+When mcts.batch_size > 1, one search collects that many leaves, applies
+virtual loss so PUCT does not collapse onto one edge, and evaluates them in
+a single network forward. batch_size == 1 keeps the original sequential path
+(no virtual loss) so tests that expect visit concentration still hold.
 """
 
 from __future__ import annotations
@@ -36,6 +41,11 @@ class Evaluator(Protocol):
     ) -> tuple[list[int], np.ndarray, float]:
         """Return (legal action indices, priors over those actions, value)."""
 
+    def evaluate_many(
+        self, encodings: list, legal_lists: list[list[int]]
+    ) -> list[tuple[np.ndarray, float]]:
+        """Priors (over each legal list) and values for a batch of encoded leaves."""
+
 
 class UniformEvaluator:
     """Equal priors, v=0. Used to test search structure without a network."""
@@ -46,10 +56,20 @@ class UniformEvaluator:
     def evaluate(self, board, history: list) -> tuple[list[int], np.ndarray, float]:
         del history
         legal = [int(i) for i in self.encoder.legal_action_indices(board)]
-        if not legal:
-            return [], np.zeros(0, dtype=np.float64), 0.0
-        prior = np.full(len(legal), 1.0 / len(legal), dtype=np.float64)
-        return legal, prior, 0.0
+        prior, value = self.evaluate_many([None], [legal])[0]
+        return legal, prior, value
+
+    def evaluate_many(
+        self, encodings: list, legal_lists: list[list[int]]
+    ) -> list[tuple[np.ndarray, float]]:
+        del encodings
+        out: list[tuple[np.ndarray, float]] = []
+        for legal in legal_lists:
+            if not legal:
+                out.append((np.zeros(0, dtype=np.float64), 0.0))
+            else:
+                out.append((np.full(len(legal), 1.0 / len(legal), dtype=np.float64), 0.0))
+        return out
 
 
 class NetworkEvaluator:
@@ -63,20 +83,37 @@ class NetworkEvaluator:
         self._torch = torch
 
     def evaluate(self, board, history: list) -> tuple[list[int], np.ndarray, float]:
-        torch = self._torch
         legal = [int(i) for i in self.encoder.legal_action_indices(board)]
         if not legal:
             return [], np.zeros(0, dtype=np.float64), 0.0
         x = self.encoder.encode(board, history)
-        tensor = torch.from_numpy(np.ascontiguousarray(x)).unsqueeze(0).to(self.device)
+        prior, value = self.evaluate_many([x], [legal])[0]
+        return legal, prior, value
+
+    def evaluate_many(
+        self, encodings: list, legal_lists: list[list[int]]
+    ) -> list[tuple[np.ndarray, float]]:
+        torch = self._torch
+        if not encodings:
+            return []
+        x = np.stack([np.ascontiguousarray(enc) for enc in encodings], axis=0)
+        tensor = torch.from_numpy(x).to(self.device)
         ctx = self.lock if self.lock is not None else nullcontext()
         with ctx:
             self.net.eval()
             with torch.no_grad():
-                logits, value = self.net(tensor)
-        legal_t = torch.tensor(legal, device=logits.device, dtype=torch.long)
-        prior = torch.softmax(logits[0].index_select(0, legal_t), dim=0)
-        return legal, prior.detach().cpu().numpy().astype(np.float64), float(value[0].detach().cpu())
+                logits, values = self.net(tensor)
+        logits = logits.detach().cpu()
+        values = values.detach().cpu().reshape(-1)
+        out: list[tuple[np.ndarray, float]] = []
+        for i, legal in enumerate(legal_lists):
+            if not legal:
+                out.append((np.zeros(0, dtype=np.float64), float(values[i])))
+                continue
+            legal_t = torch.tensor(legal, dtype=torch.long)
+            prior = torch.softmax(logits[i].index_select(0, legal_t), dim=0)
+            out.append((prior.numpy().astype(np.float64), float(values[i])))
+        return out
 
 
 class _Node:
@@ -157,6 +194,8 @@ class MCTS:
         self.dirichlet_epsilon = float(mcts["dirichlet_epsilon"])
         self.add_dirichlet_noise = bool(mcts.get("add_dirichlet_noise", True))
         self.temperature = float(mcts["temperature"])
+        self.batch_size = max(1, int(mcts.get("batch_size", 1)))
+        self.virtual_loss = max(0, int(mcts.get("virtual_loss", 1)))
         self.need_history = int(self.cfg["encode"]["history_length"]) > 1
         rng_seed = self.cfg["seed"] if seed is None else seed
         self.rng = np.random.default_rng(rng_seed)
@@ -227,7 +266,9 @@ class MCTS:
         node.expand(legal, prior)
         return float(value)
 
-    def _simulate(self, board, game_past: list) -> None:
+    def _select_leaf(
+        self, board, virtual_loss: int
+    ) -> tuple[list[tuple[_Node, int]], _Node, list]:
         node = self.root
         path: list[tuple[_Node, int]] = []
         search_hist: list = []
@@ -235,24 +276,96 @@ class MCTS:
             n_sum = int(node.n.sum()) if node.n is not None else 0
             i = node.select(self._c_puct(n_sum))
             path.append((node, i))
+            if virtual_loss:
+                node.n[i] += virtual_loss
+                node.w[i] -= float(virtual_loss)
             if self.need_history:
                 search_hist.append(board.copy())
             self.encoder.play(board, int(node.actions[i]))
             node = node.child[i]
+        return path, node, search_hist
 
+    def _backup(self, path: list[tuple[_Node, int]], v: float, virtual_loss: int) -> None:
+        for parent, i in reversed(path):
+            if virtual_loss:
+                parent.n[i] -= virtual_loss
+                parent.w[i] += float(virtual_loss)
+            v = -v
+            parent.n[i] += 1
+            parent.w[i] += v
+
+    @staticmethod
+    def _unmake(board, path: list) -> None:
+        for _ in path:
+            board.unmake_move()
+
+    def _simulate(self, board, game_past: list) -> None:
+        path, node, search_hist = self._select_leaf(board, virtual_loss=0)
         history = game_past + search_hist
         if not node.expanded:
             v = self._expand(node, board, history)
         else:
             v = 0.0 if node.terminal_v is None else node.terminal_v
+        self._backup(path, v, virtual_loss=0)
+        self._unmake(board, path)
 
-        for parent, i in reversed(path):
-            v = -v
-            parent.n[i] += 1
-            parent.w[i] += v
+    def _simulate_batch(self, board, game_past: list, n: int) -> None:
+        """Collect n leaves with virtual loss, one batched forward, then backup."""
+        vl = self.virtual_loss
+        ready: list[tuple[list[tuple[_Node, int]], float]] = []
+        pending: list[tuple[list[tuple[_Node, int]], _Node, object, list[int]]] = []
+        for _ in range(n):
+            path, node, search_hist = self._select_leaf(board, virtual_loss=vl)
+            history = game_past + search_hist
+            if node.expanded:
+                v = 0.0 if node.terminal_v is None else node.terminal_v
+                ready.append((path, v))
+            else:
+                tv = terminal_value(board)
+                if tv is not None:
+                    node.mark_terminal(tv)
+                    ready.append((path, tv))
+                else:
+                    enc = self.encoder.encode(board, history)
+                    legal = [int(i) for i in self.encoder.legal_action_indices(board)]
+                    pending.append((path, node, enc, legal))
+            self._unmake(board, path)
 
-        for _ in path:
-            board.unmake_move()
+        id_to_v: dict[int, float] = {}
+        unique_nodes: list[_Node] = []
+        unique_enc: list = []
+        unique_legal: list[list[int]] = []
+        seen: dict[int, int] = {}
+        for _path, node, enc, legal in pending:
+            nid = id(node)
+            if nid in seen:
+                continue
+            seen[nid] = len(unique_nodes)
+            unique_nodes.append(node)
+            unique_enc.append(enc)
+            unique_legal.append(legal)
+
+        if unique_nodes:
+            if self.evaluator is None:
+                raise RuntimeError("MCTS needs an evaluator")
+            pvs = self.evaluator.evaluate_many(unique_enc, unique_legal)
+            for node, legal, (prior, value) in zip(unique_nodes, unique_legal, pvs):
+                if not node.expanded:
+                    if not legal:
+                        node.mark_terminal(-1.0)
+                        id_to_v[id(node)] = -1.0
+                    else:
+                        node.expand(legal, prior)
+                        id_to_v[id(node)] = float(value)
+                elif node.terminal_v is not None:
+                    id_to_v[id(node)] = node.terminal_v
+                else:
+                    id_to_v[id(node)] = float(value)
+
+        for path, v in ready:
+            self._backup(path, v, vl)
+        for path, node, _enc, _legal in pending:
+            self._backup(path, id_to_v[id(node)], vl)
 
     def run(
         self,
@@ -289,8 +402,15 @@ class MCTS:
                 legal_indices=[],
             )
 
-        for _ in range(n_sims):
-            self._simulate(board, game_past)
+        if self.batch_size <= 1 or not hasattr(self.evaluator, "evaluate_many"):
+            for _ in range(n_sims):
+                self._simulate(board, game_past)
+        else:
+            done = 0
+            while done < n_sims:
+                chunk = min(self.batch_size, n_sims - done)
+                self._simulate_batch(board, game_past, chunk)
+                done += chunk
 
         if board.fen() != fen_before or board.ply() != ply_before:
             raise RuntimeError("MCTS did not restore the board")

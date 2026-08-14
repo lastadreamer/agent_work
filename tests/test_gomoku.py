@@ -69,6 +69,24 @@ def test_mcts_restores_gomoku_board():
     assert len(result.policy) == 81
 
 
+def test_batched_mcts_restores_gomoku_board():
+    cfg = _smoke_cfg()
+    cfg["mcts"]["batch_size"] = 8
+    cfg["mcts"]["virtual_loss"] = 1
+    b = make_board(cfg)
+    enc = make_encoder(cfg)
+    fen = b.fen()
+    ply = b.ply()
+    result = MCTS(cfg, UniformEvaluator(enc), encoder=enc, seed=0).run(
+        b, simulations=16, add_noise=False, temperature=0
+    )
+    assert b.fen() == fen
+    assert b.ply() == ply
+    assert result.move is not None
+    assert b.is_legal(result.move)
+    assert sum(result.visit_counts.values()) == 16
+
+
 def test_selfplay_game_emits_samples():
     cfg = _smoke_cfg()
     rec = play_game(cfg, seed=0, simulations=4)

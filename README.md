@@ -123,7 +123,7 @@ CUDA_VISIBLE_DEVICES=0,1 xiangqi-train
 # 同时把 config 里 selfplay.gpus 改成实际空闲张数
 ```
 
-机器吃不消就改小 `selfplay.n_games_per_iter`、`n_workers`、`mcts.simulations`。没有训过的网络加上很少的模拟，棋力接近乱走，这是预期现象。
+自我对弈里每个 worker 会把最多 `mcts.batch_size` 个叶子一次送给 GPU（默认 32），用 `virtual_loss` 让同一批里的 PUCT 不会全挤在同一条边。机器吃不消就改小 `selfplay.n_games_per_iter`、`n_workers`、`mcts.simulations`。没有训过的网络加上很少的模拟，棋力接近乱走，这是预期现象。
 
 ## 对弈
 
@@ -156,7 +156,7 @@ xiangqi-play --config config/gomoku.json --checkpoint checkpoints/gomoku/best.pt
 | `paths` | 权重、回放、日志、`latest_checkpoint` |
 | `board` / `action` | 棋盘大小、动作编码与数量 |
 | `network` | 残差块数、通道 |
-| `mcts` | 模拟次数、PUCT、温度、Dirichlet |
+| `mcts` | 模拟次数、PUCT、温度、Dirichlet、叶子评估 `batch_size` |
 | `selfplay` | 每轮盘数、进程数、单局最长步数 |
 | `replay` / `train` | 回放池容量、优化器、学习率、batch |
 | `eval` / `loop` | 评估盘数、晋升阈值、迭代次数 |

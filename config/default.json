@@ -51,7 +51,7 @@
   },
 
   "mcts": {
-    "_doc": "800 simulations matches the AlphaZero chess/shogi setting. reuse_tree keeps the played-move subtree inside one game. Trees are not written into training checkpoints.",
+    "_doc": "800 simulations matches the AlphaZero chess/shogi setting. batch_size > 1 evaluates that many in-flight leaves in one GPU forward; virtual_loss (added to N, subtracted from W) stops PUCT collapsing onto one edge inside the batch. batch_size == 1 is the old sequential path with no virtual loss. reuse_tree keeps the played-move subtree inside one game. Trees are not written into training checkpoints.",
     "simulations": 800,
     "c_puct": 1.5,
     "c_puct_base": 0,
@@ -62,11 +62,13 @@
     "reuse_tree": true,
     "temperature": 1.0,
     "temperature_moves": 16,
-    "max_game_plies": 400
+    "max_game_plies": 400,
+    "batch_size": 32,
+    "virtual_loss": 1
   },
 
   "selfplay": {
-    "_doc": "256 games / 32 workers ≈ 8 processes per H200. Each worker loads its own net. device=auto spreads workers with cuda:(id % gpus) when CUDA exists, otherwise CPU. If cards are busy, set gpus to the number of free cards or CUDA_VISIBLE_DEVICES. Inference is still one position at a time, so many workers matter more than a huge batch.",
+    "_doc": "256 games / 32 workers ≈ 8 processes per H200. Each worker loads its own net. device=auto spreads workers with cuda:(id % gpus) when CUDA exists, otherwise CPU. If cards are busy, set gpus to the number of free cards or CUDA_VISIBLE_DEVICES. Each worker batches mcts.batch_size leaf positions per forward so the GPU is not stuck on batch=1.",
     "n_games_per_iter": 256,
     "n_workers": 32,
     "max_plies": 400,

@@ -42,7 +42,9 @@
     "reuse_tree": true,
     "temperature": 1.0,
     "temperature_moves": 2,
-    "max_game_plies": 81
+    "max_game_plies": 81,
+    "batch_size": 1,
+    "virtual_loss": 1
   },
   "selfplay": {
     "n_games_per_iter": 2,
