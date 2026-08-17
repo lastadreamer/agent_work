@@ -48,6 +48,9 @@ class ReplayBuffer:
     def ready(self) -> bool:
         return len(self._items) >= int(self.cfg["replay"]["min_size"])
 
+    def clear(self) -> None:
+        self._items.clear()
+
     def sample(self, batch_size: int, rng: np.random.Generator | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         if not self._items:
             raise RuntimeError("replay buffer is empty")
@@ -66,8 +69,10 @@ class ReplayBuffer:
     def save(self, path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as fh:
+        tmp = path.with_name(path.name + ".tmp")
+        with tmp.open("wb") as fh:
             pickle.dump(list(self._items), fh, protocol=pickle.HIGHEST_PROTOCOL)
+        tmp.replace(path)
 
     def load(self, path: str | Path) -> None:
         with Path(path).open("rb") as fh:

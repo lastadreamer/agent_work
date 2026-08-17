@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import pickle
 import time
 from pathlib import Path
 
@@ -213,13 +214,19 @@ def run_iteration(
 
 def _try_load_replay(buffer: ReplayBuffer, resume: str | Path, cfg: Cfg) -> Path | None:
     sidecar = checkpoint_replay_path(resume)
-    if sidecar.is_file():
-        buffer.load(sidecar)
-        return sidecar
     fallback = Path(cfg["paths"].get("replay_dir", "data/replay")) / "buffer.pkl"
-    if fallback.is_file():
-        buffer.load(fallback)
-        return fallback
+    for path in (sidecar, fallback):
+        if not path.is_file():
+            continue
+        try:
+            buffer.load(path)
+            return path
+        except (EOFError, pickle.UnpicklingError, OSError) as exc:
+            print(
+                f"warning: replay {path} is unreadable ({exc}); skipping",
+                flush=True,
+            )
+            buffer.clear()
     return None
 
 

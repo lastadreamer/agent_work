@@ -180,6 +180,18 @@ def test_old_weight_only_checkpoint_still_resumes(tmp_path):
     assert history[0]["iteration"] == 4
 
 
+def test_resume_skips_truncated_replay(tmp_path):
+    cfg = _loop_cfg(tmp_path)
+    first = run_loop(cfg)
+    ckpt = tmp_path / "ckpt" / "iter_0001.pt"
+    sidecar = checkpoint_replay_path(ckpt)
+    sidecar.write_bytes(b"")
+    cfg2 = _loop_cfg(tmp_path)
+    history = run_loop(cfg2, resume=str(ckpt))
+    assert history[0]["iteration"] == 2
+    assert history[0]["buffer"] >= first[0]["games"]
+
+
 def test_smoke_config_is_cpu_only():
     cfg = load_config("config/smoke.json")
     assert cfg["device"] == "cpu"
