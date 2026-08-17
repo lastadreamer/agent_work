@@ -96,7 +96,7 @@
   },
 
   "eval": {
-    "_doc": "Eval is sequential on the training GPU. Keep n_games modest and eval_every > 1 so it does not dominate wall time.",
+    "_doc": "Challenger is the learner; incumbent is best. Self-play always uses best. The learner replaces best only when win_rate >= threshold, so a weaker trainee does not generate the next games. Eval is sequential on the training GPU. Keep n_games modest and eval_every > 1 so it does not dominate wall time.",
     "n_games": 20,
     "mcts_simulations": 400,
     "win_rate_threshold": 0.55

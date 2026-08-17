@@ -1,4 +1,8 @@
-"""AlphaZero iteration: self-play → train → eval → maybe promote.
+"""Training iteration: self-play with frozen best → train learner → eval → maybe promote.
+
+Self-play always uses `best`. The learner (`net`) only replaces `best` when it
+beats the incumbent in eval (AlphaGo Zero gate). That stops a weaker trainee
+from generating the next round of games.
 
     python -m xiangqi_engine.loop --config config/default.json
     python -m xiangqi_engine.loop --resume
@@ -119,7 +123,7 @@ def run_iteration(
     print(
         f"iter {iteration}: self-play starting "
         f"{cfg['selfplay']['n_games_per_iter']} games × {n_workers} workers "
-        f"× {cfg['mcts']['simulations']} sims",
+        f"× {cfg['mcts']['simulations']} sims (frozen best)",
         flush=True,
     )
     if n_workers > 1:
@@ -127,11 +131,11 @@ def run_iteration(
             cfg,
             n_workers=n_workers,
             seed=int(cfg["seed"]) + iteration * 10007,
-            state_dict=_cpu_state_dict(net),
+            state_dict=_cpu_state_dict(best),
         )
     else:
         enc = make_encoder(cfg)
-        ev = NetworkEvaluator(net, enc, device=device)
+        ev = NetworkEvaluator(best, enc, device=device)
         games = play_games(
             cfg,
             evaluator=ev,
@@ -228,6 +232,7 @@ def run_loop(cfg: Cfg | None = None, resume: str | None = None) -> list[dict]:
         f"selfplay={cfg['selfplay']['n_games_per_iter']} games "
         f"x {cfg['selfplay']['n_workers']} workers "
         f"sims={cfg['mcts']['simulations']} "
+        f"gate=best "
         f"iters={n_iters}",
         flush=True,
     )

@@ -62,6 +62,77 @@ def test_one_training_iteration(tmp_path):
     assert it == 1
 
 
+def _load_pair(cfg, tmp_path: Path):
+    learner = PolicyValueNet(cfg)
+    best = PolicyValueNet(cfg)
+    load_checkpoint(tmp_path / "ckpt" / "latest.pt", learner)
+    load_checkpoint(tmp_path / "ckpt" / "best.pt", best)
+    return learner, best
+
+
+def _weights_equal(a, b) -> bool:
+    return all(torch.equal(x, y) for x, y in zip(a.state_dict().values(), b.state_dict().values()))
+
+
+def test_selfplay_uses_frozen_best_when_not_promoted(tmp_path, monkeypatch):
+    from xiangqi_engine import loop as loop_mod
+
+    snapshots = []
+    orig = loop_mod.play_games
+
+    def wrapped(cfg, evaluator=None, **kwargs):
+        if evaluator is not None:
+            snapshots.append(
+                {k: v.detach().cpu().clone() for k, v in evaluator.net.state_dict().items()}
+            )
+        return orig(cfg, evaluator=evaluator, **kwargs)
+
+    monkeypatch.setattr(loop_mod, "play_games", wrapped)
+    cfg = _loop_cfg(tmp_path)
+    history = run_loop(cfg)
+    assert history[0]["promoted"] is False
+    assert snapshots
+    learner, best = _load_pair(cfg, tmp_path)
+    for a, b in zip(snapshots[0].values(), best.state_dict().values()):
+        assert torch.equal(a, b)
+    assert not _weights_equal(learner, best)
+
+
+def test_later_selfplay_keeps_unpromoted_best(tmp_path, monkeypatch):
+    from xiangqi_engine import loop as loop_mod
+
+    snapshots = []
+    orig = loop_mod.play_games
+
+    def wrapped(cfg, evaluator=None, **kwargs):
+        if evaluator is not None:
+            snapshots.append(
+                {k: v.detach().cpu().clone() for k, v in evaluator.net.state_dict().items()}
+            )
+        return orig(cfg, evaluator=evaluator, **kwargs)
+
+    monkeypatch.setattr(loop_mod, "play_games", wrapped)
+    cfg = _loop_cfg(tmp_path)
+    cfg["loop"]["n_iterations"] = 2
+    history = run_loop(cfg)
+    assert [m["promoted"] for m in history] == [False, False]
+    assert len(snapshots) == 2
+    learner, best = _load_pair(cfg, tmp_path)
+    for snap in snapshots:
+        for a, b in zip(snap.values(), best.state_dict().values()):
+            assert torch.equal(a, b)
+    assert not _weights_equal(learner, best)
+
+
+def test_promotion_copies_learner_into_best(tmp_path):
+    cfg = _loop_cfg(tmp_path)
+    cfg["eval"]["win_rate_threshold"] = -1.0
+    history = run_loop(cfg)
+    assert history[0]["promoted"] is True
+    learner, best = _load_pair(cfg, tmp_path)
+    assert _weights_equal(learner, best)
+
+
 def test_checkpoint_roundtrip(tmp_path):
     cfg = _loop_cfg(tmp_path)
     net = PolicyValueNet(cfg)
