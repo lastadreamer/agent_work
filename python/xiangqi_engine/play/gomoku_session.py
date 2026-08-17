@@ -7,6 +7,7 @@ from xiangqi_engine.config import Cfg, deepcopy_config, load_config
 from xiangqi_engine.game import make_board, make_encoder
 from xiangqi_engine.gomoku.board import GomokuMove, sq_to_iccs
 from xiangqi_engine.mcts import MCTS, NetworkEvaluator, UniformEvaluator, terminal_value
+from xiangqi_engine.play.session import resolved_checkpoint
 
 
 OUTCOME_TEXT = {
@@ -62,7 +63,8 @@ class GomokuPlaySession:
         return self.state()
 
     def _load_net(self) -> None:
-        path = self.checkpoint.strip()
+        path = resolved_checkpoint(self.checkpoint)
+        self.checkpoint = path
         if not path:
             self._net = None
             self._net_path = None
@@ -228,7 +230,6 @@ class GomokuPlaySession:
         last = None
         if self.history:
             last = {"iccs": self.history[-1]}
-        play = self.cfg.get("play", {})
         return {
             "game": "gomoku",
             "size": size,
@@ -250,7 +251,7 @@ class GomokuPlaySession:
             "can_undo": bool(self.history),
             "ply": int(self.board.ply()),
             "play_defaults": {
-                "checkpoint": play.get("checkpoint", ""),
-                "simulations": int(play.get("simulations") or self.simulations),
+                "checkpoint": self.checkpoint,
+                "simulations": self.simulations,
             },
         }

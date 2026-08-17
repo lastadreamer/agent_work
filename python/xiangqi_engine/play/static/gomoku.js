@@ -69,6 +69,12 @@ function render() {
   document.getElementById("btn-auto").textContent = autoplay ? "暂停机机" : "机机自动";
 }
 
+function syncForm() {
+  if (!state) return;
+  ckptEl.value = state.checkpoint || "";
+  if (state.simulations) simsEl.value = state.simulations;
+}
+
 async function onSquare(iccs) {
   if (busy || !state || state.over) return;
   if (currentRole() !== "human") return;
@@ -99,10 +105,7 @@ async function maybeAi() {
 
 async function refresh() {
   state = await api("/api/state");
-  if (state.play_defaults) {
-    if (!ckptEl.value) ckptEl.value = state.play_defaults.checkpoint || "";
-    simsEl.value = state.play_defaults.simulations;
-  }
+  syncForm();
   render();
   await maybeAi();
 }
@@ -113,10 +116,11 @@ document.getElementById("btn-new").addEventListener("click", async () => {
     red: roles.red,
     black: roles.black,
     simulations: Number(simsEl.value),
-    checkpoint: ckptEl.value,
+    checkpoint: (ckptEl.value || "").trim(),
   });
   autoplay = false;
   render();
+  syncForm();
   await maybeAi();
 });
 document.getElementById("btn-undo").addEventListener("click", async () => {

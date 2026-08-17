@@ -2,7 +2,7 @@ from xiangqi_engine import START_FEN, load_config
 from xiangqi_engine.config import deepcopy_config
 from xiangqi_engine.play.server import static_relpath
 from xiangqi_engine.play.gomoku_session import GomokuPlaySession
-from xiangqi_engine.play.session import PlaySession
+from xiangqi_engine.play.session import PlaySession, resolved_checkpoint
 
 
 def _session():
@@ -28,6 +28,22 @@ def test_new_game_start_position():
     assert st["squares"][0][0]["rank"] == 9
     assert st["squares"][0][0]["file"] == 0
     assert st["squares"][-1][4]["glyph"] == "帅"
+
+
+def test_state_shows_actual_checkpoint_not_config_default():
+    cfg = deepcopy_config(load_config())
+    cfg["mcts"]["simulations"] = 2
+    cfg["play"]["checkpoint"] = "config-default.pt"
+    cfg["play"]["simulations"] = 80
+    s = PlaySession(cfg)
+    s.new_game(red="human", black="human", simulations=4, checkpoint="used.pt")
+    st = s.state()
+    assert st["checkpoint"] == "used.pt"
+    assert st["play_defaults"]["checkpoint"] == "used.pt"
+    assert st["play_defaults"]["simulations"] == 4
+    s.new_game(red="human", black="human", simulations=4, checkpoint="")
+    assert s.state()["checkpoint"] == ""
+    assert s.state()["play_defaults"]["checkpoint"] == ""
 
 
 def test_idle_repetition_shows_chinese_reason():
@@ -69,6 +85,14 @@ def test_undo_and_human_turn():
     s.ai_move()
     s.undo_human_turn()
     assert s.history == []
+
+
+def test_resolved_checkpoint_absolutizes_existing_file(tmp_path):
+    f = tmp_path / "best.pt"
+    f.write_bytes(b"x")
+    assert resolved_checkpoint(str(f)) == str(f.resolve())
+    assert resolved_checkpoint("missing.pt") == "missing.pt"
+    assert resolved_checkpoint("  ") == ""
 
 
 def test_ai_move_uniform_and_refuse_human_side():
@@ -127,3 +151,16 @@ def test_gomoku_session_place_and_undo():
     s.undo(1)
     assert s.history == []
     assert s.state()["fen"] == s.board.fen()
+
+
+def test_gomoku_state_shows_actual_checkpoint():
+    cfg = deepcopy_config(load_config("config/gomoku_smoke.json"))
+    cfg["mcts"]["simulations"] = 2
+    cfg["play"]["checkpoint"] = "config-default.pt"
+    cfg["play"]["simulations"] = 80
+    s = GomokuPlaySession(cfg)
+    s.new_game(red="human", black="human", simulations=4, checkpoint="used.pt")
+    st = s.state()
+    assert st["checkpoint"] == "used.pt"
+    assert st["play_defaults"]["checkpoint"] == "used.pt"
+    assert st["play_defaults"]["simulations"] == 4

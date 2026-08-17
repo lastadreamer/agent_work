@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from xiangqi_engine._xiangqi import RED, Board, Move, Outcome, TerminalReason, square_to_iccs
 from xiangqi_engine.config import Cfg, deepcopy_config, load_config
 from xiangqi_engine.encode import Encoder
@@ -51,6 +53,17 @@ def _role(name: str) -> str:
     return "human"
 
 
+def resolved_checkpoint(path: str) -> str:
+    """Return an existing file as an absolute path; otherwise the stripped string."""
+    path = (path or "").strip()
+    if not path:
+        return ""
+    p = Path(path).expanduser()
+    if p.is_file():
+        return str(p.resolve())
+    return path
+
+
 class PlaySession:
     def __init__(self, cfg: Cfg | None = None):
         self.cfg = deepcopy_config(cfg if cfg is not None else load_config())
@@ -87,7 +100,8 @@ class PlaySession:
         return self.state()
 
     def _load_net(self) -> None:
-        path = self.checkpoint.strip()
+        path = resolved_checkpoint(self.checkpoint)
+        self.checkpoint = path
         if not path:
             self._net = None
             self._net_path = None
@@ -261,7 +275,6 @@ class PlaySession:
         if self.history:
             iccs = self.history[-1]
             last = {"from": iccs[:2], "to": iccs[2:4], "iccs": iccs}
-        play = self.cfg.get("play", {})
         return {
             "squares": squares,
             "fen": self.board.fen(),
@@ -283,7 +296,7 @@ class PlaySession:
             "ply": int(self.board.ply()),
             "halfmove": int(self.board.halfmove_clock()),
             "play_defaults": {
-                "checkpoint": play.get("checkpoint", ""),
-                "simulations": int(play.get("simulations") or self.simulations),
+                "checkpoint": self.checkpoint,
+                "simulations": self.simulations,
             },
         }

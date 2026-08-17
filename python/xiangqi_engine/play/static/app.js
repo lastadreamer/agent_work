@@ -94,6 +94,12 @@ function render() {
   document.getElementById("btn-auto").textContent = autoplay ? "暂停机机" : "机机自动";
 }
 
+function syncForm() {
+  if (!state) return;
+  ckptEl.value = state.checkpoint || "";
+  if (state.simulations) simsEl.value = state.simulations;
+}
+
 async function onSquare(iccs) {
   if (busy || !state || state.over) return;
   if (currentRole() !== "human") return;
@@ -162,6 +168,7 @@ async function newGame() {
     });
     selected = null;
     render();
+    syncForm();
   } finally {
     busy = false;
   }
@@ -205,10 +212,7 @@ document.getElementById("btn-auto").onclick = async () => {
 (async function init() {
   try {
     state = await api("/api/state");
-    if (state.play_defaults) {
-      if (state.play_defaults.checkpoint) ckptEl.value = state.play_defaults.checkpoint;
-      if (state.play_defaults.simulations) simsEl.value = state.play_defaults.simulations;
-    }
+    syncForm();
     render();
   } catch (e) {
     statusEl.textContent = "无法连接服务器: " + e.message;
