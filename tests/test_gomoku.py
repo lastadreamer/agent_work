@@ -5,7 +5,7 @@ import pytest
 from xiangqi_engine._xiangqi import BLACK, Outcome
 from xiangqi_engine.config import deepcopy_config, load_config
 from xiangqi_engine.game import game_name, make_board, make_encoder
-from xiangqi_engine.gomoku.board import GomokuBoard
+from xiangqi_engine.gomoku.board import GomokuBoard, sq_to_iccs
 from xiangqi_engine.mcts import MCTS, UniformEvaluator, terminal_value
 from xiangqi_engine.selfplay import play_game
 
@@ -41,6 +41,7 @@ def test_five_in_a_row_wins():
     assert term.outcome == Outcome.BLACK_WIN
     assert term.reason == "FIVE"
     assert terminal_value(b) == -1.0  # white to move, black already won
+    assert [sq_to_iccs(sq, 9) for sq in b.winning_squares()] == ["a0", "b0", "c0", "d0", "e0"]
 
 
 def test_make_unmake_restores():

@@ -4,10 +4,47 @@ const infoEl = document.getElementById("info");
 const modeEl = document.getElementById("mode");
 const ckptEl = document.getElementById("checkpoint");
 const simsEl = document.getElementById("simulations");
+const stageEl = document.getElementById("board-stage");
+const overlayEl = document.getElementById("result-overlay");
+const resultOutcomeEl = document.getElementById("result-outcome");
+const resultReasonEl = document.getElementById("result-reason");
 
 let state = null;
 let busy = false;
 let autoplay = false;
+
+function resultClass(outcome) {
+  if (outcome === "红胜") return "win-red";
+  if (outcome === "白胜") return "win-white";
+  if (outcome === "黑胜") return "win-black";
+  if (outcome === "和棋") return "draw";
+  return "draw";
+}
+
+function applyGameOverUi(state) {
+  const kinds = ["over", "win-red", "win-white", "win-black", "draw"];
+  statusEl.classList.remove(...kinds);
+  overlayEl.classList.remove("win-red", "win-white", "win-black", "draw");
+  stageEl.classList.toggle("over", !!state.over);
+  overlayEl.hidden = !state.over;
+  document.getElementById("btn-ai").disabled = !state || state.over;
+  document.getElementById("btn-auto").disabled = !state || state.over;
+  if (!state.over) return;
+  const kind = resultClass(state.outcome);
+  statusEl.classList.add("over", kind);
+  overlayEl.classList.add(kind);
+  resultOutcomeEl.textContent = state.outcome || "终局";
+  resultReasonEl.textContent = state.reason || "";
+  resultReasonEl.hidden = !state.reason;
+  statusEl.textContent = "";
+  statusEl.append(state.outcome || "终局");
+  if (state.reason) {
+    const reason = document.createElement("span");
+    reason.className = "reason";
+    reason.textContent = state.reason;
+    statusEl.append(reason);
+  }
+}
 
 function rolesFromMode(mode) {
   if (mode === "hh") return { red: "human", black: "human" };
@@ -37,12 +74,14 @@ function render() {
   boardEl.innerHTML = "";
   const last = state.last_move ? state.last_move.iccs : "";
   const legal = new Set(state.legal || []);
+  const winning = new Set(state.winning || []);
   for (const row of state.squares) {
     for (const cell of row) {
       const el = document.createElement("div");
       el.className = "cell";
       if (legal.has(cell.iccs)) el.classList.add("legal");
       if (cell.iccs === last) el.classList.add("last");
+      if (winning.has(cell.iccs)) el.classList.add("win");
       if (cell.color) {
         const s = document.createElement("div");
         s.className = `stone ${cell.color}`;
@@ -52,12 +91,13 @@ function render() {
       boardEl.appendChild(el);
     }
   }
-  const reason = state.over && state.reason ? `（${state.reason}）` : "";
-  const over = state.over
-    ? `终局：${state.outcome}${reason}`
-    : `轮到 ${state.side === "black" ? "黑" : "白"}`;
+  applyGameOverUi(state);
   const err = state.error ? ` · ${state.error}` : "";
-  statusEl.textContent = over + err;
+  if (state.over) {
+    statusEl.insertAdjacentText("beforeend", err);
+  } else {
+    statusEl.textContent = `轮到 ${state.side === "black" ? "黑" : "白"}` + err;
+  }
   infoEl.textContent = [
     `FEN: ${state.fen}`,
     `步数: ${state.ply}`,

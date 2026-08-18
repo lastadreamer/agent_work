@@ -227,6 +227,7 @@ class GomokuPlaySession:
         if not self._terminal():
             legal = [mv.iccs() for mv in self.board.legal_moves()]
         term = self.board.terminal()
+        winning = [sq_to_iccs(sq, size) for sq in self.board.winning_squares()]
         last = None
         if self.history:
             last = {"iccs": self.history[-1]}
@@ -242,6 +243,7 @@ class GomokuPlaySession:
             "history": list(self.history),
             "last_move": last,
             "legal": legal,
+            "winning": winning,
             "red": self.red,
             "black": self.black,
             "to_move_role": self._side_role(),

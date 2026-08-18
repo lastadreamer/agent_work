@@ -131,6 +131,7 @@ def test_static_paths_stay_inside_bundle():
     assert static_relpath("/", "gomoku") == "gomoku.html"
     assert static_relpath("/static/style.css") == "style.css"
     assert static_relpath("/static/app.js") == "app.js"
+    assert static_relpath("/static/result.css") == "result.css"
     assert static_relpath("/static/../session.py") is None
     assert static_relpath("/app.js") == "app.js"
 
@@ -151,6 +152,21 @@ def test_gomoku_session_place_and_undo():
     s.undo(1)
     assert s.history == []
     assert s.state()["fen"] == s.board.fen()
+    assert s.state()["winning"] == []
+
+
+def test_gomoku_state_includes_winning_line():
+    cfg = deepcopy_config(load_config("config/gomoku_smoke.json"))
+    cfg["mcts"]["simulations"] = 2
+    s = GomokuPlaySession(cfg)
+    s.new_game(red="human", black="human", simulations=2, checkpoint="")
+    for iccs in ("a0", "a8", "b0", "b8", "c0", "c8", "d0", "d8", "e0"):
+        s.move(iccs)
+    st = s.state()
+    assert st["over"] is True
+    assert st["outcome"] == "黑胜"
+    assert st["reason"] == "五连"
+    assert st["winning"] == ["a0", "b0", "c0", "d0", "e0"]
 
 
 def test_gomoku_state_shows_actual_checkpoint():

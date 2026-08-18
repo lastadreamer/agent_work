@@ -162,6 +162,21 @@ class GomokuBoard:
             c += dc
         return n
 
+    def _line_squares(self, sq: int, dr: int, dc: int) -> list[int]:
+        stone = self.squares[sq]
+        if stone == EMPTY:
+            return []
+        size = self.size
+        rank, file = divmod(sq, size)
+        cells = [sq]
+        for sign in (1, -1):
+            r, c = rank + sign * dr, file + sign * dc
+            while 0 <= r < size and 0 <= c < size and self.squares[r * size + c] == stone:
+                cells.append(r * size + c)
+                r += sign * dr
+                c += sign * dc
+        return cells
+
     def _is_five(self, sq: int) -> bool:
         stone = self.squares[sq]
         if stone == EMPTY:
@@ -170,6 +185,19 @@ class GomokuBoard:
             if 1 + self._line_len(sq, dr, dc, stone) + self._line_len(sq, -dr, -dc, stone) >= 5:
                 return True
         return False
+
+    def winning_squares(self) -> list[int]:
+        """Squares of the winning run, or empty if the game is not a five-in-a-row."""
+        if not self.undos:
+            return []
+        sq = self.undos[-1]
+        if not self._is_five(sq):
+            return []
+        for dr, dc in ((0, 1), (1, 0), (1, 1), (1, -1)):
+            cells = self._line_squares(sq, dr, dc)
+            if len(cells) >= 5:
+                return sorted(cells)
+        return []
 
     def terminal(self) -> GomokuTerminal:
         if self.undos:

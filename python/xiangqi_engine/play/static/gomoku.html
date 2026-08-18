@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>五子棋对弈 · Gomoku</title>
   <link rel="stylesheet" href="/static/gomoku.css" />
+  <link rel="stylesheet" href="/static/result.css" />
 </head>
 <body>
   <header>
@@ -13,8 +14,16 @@
   </header>
   <main>
     <section class="board-wrap">
-      <div id="status" class="status">加载中…</div>
-      <div id="board" class="board" aria-label="gomoku board"></div>
+      <div id="status" class="status" aria-live="assertive">加载中…</div>
+      <div class="board-stage" id="board-stage">
+        <div id="board" class="board" aria-label="gomoku board"></div>
+        <div id="result-overlay" class="result-overlay" hidden>
+          <div class="result-card">
+            <div class="outcome" id="result-outcome"></div>
+            <div class="reason" id="result-reason"></div>
+          </div>
+        </div>
+      </div>
     </section>
     <aside class="panel">
       <h2>新对局</h2>
