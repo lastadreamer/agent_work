@@ -5,6 +5,8 @@ const modeEl = document.getElementById("mode");
 const ckptEl = document.getElementById("checkpoint");
 const simsEl = document.getElementById("simulations");
 const stageEl = document.getElementById("board-stage");
+const ranksEl = document.getElementById("ranks");
+const filesEl = document.getElementById("files");
 
 let state = null;
 let busy = false;
@@ -57,10 +59,28 @@ function currentRole() {
   return state.side === "black" ? state.black : state.red;
 }
 
+function renderAxes(size) {
+  ranksEl.replaceChildren();
+  filesEl.replaceChildren();
+  for (let rank = size - 1; rank >= 0; rank--) {
+    const s = document.createElement("span");
+    s.textContent = String(rank);
+    ranksEl.append(s);
+  }
+  const spacer = document.createElement("span");
+  filesEl.append(spacer);
+  for (let file = 0; file < size; file++) {
+    const s = document.createElement("span");
+    s.textContent = String.fromCharCode("a".charCodeAt(0) + file);
+    filesEl.append(s);
+  }
+}
+
 function render() {
   if (!state) return;
   const size = state.size;
   document.documentElement.style.setProperty("--n", String(size));
+  renderAxes(size);
   boardEl.innerHTML = "";
   const last = state.last_move ? state.last_move.iccs : "";
   const legal = new Set(state.legal || []);
@@ -69,6 +89,8 @@ function render() {
     for (const cell of row) {
       const el = document.createElement("div");
       el.className = "cell";
+      el.title = cell.iccs;
+      el.dataset.iccs = cell.iccs;
       if (legal.has(cell.iccs)) el.classList.add("legal");
       if (cell.iccs === last) el.classList.add("last");
       if (winning.has(cell.iccs)) el.classList.add("win");

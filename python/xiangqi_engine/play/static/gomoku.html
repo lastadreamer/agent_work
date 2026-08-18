@@ -15,9 +15,13 @@
   <main>
     <section class="board-wrap">
       <div id="status" class="status" aria-live="assertive">加载中…</div>
-      <div class="board-stage" id="board-stage">
-        <div id="board" class="board" aria-label="gomoku board"></div>
+      <div class="board-row">
+        <div class="ranks" id="ranks" aria-hidden="true"></div>
+        <div class="board-stage" id="board-stage">
+          <div id="board" class="board" aria-label="gomoku board"></div>
+        </div>
       </div>
+      <div class="files" id="files" aria-hidden="true"></div>
     </section>
     <aside class="panel">
       <h2>新对局</h2>
@@ -45,7 +49,7 @@
         <button id="btn-ai" type="button">引擎走一步</button>
         <button id="btn-auto" type="button">机机自动</button>
       </div>
-      <p class="hint">点交叉点落子。人机轮到引擎会自动走。悔一回合会连着撤回引擎的应着。</p>
+      <p class="hint">点交叉点落子。坐标与着法相同：文件 a–o（15×15）从左到右，行号从下往上，左下角是 a0。人机轮到引擎会自动走。悔一回合会连着撤回引擎的应着。</p>
       <h2>局面</h2>
       <pre id="info"></pre>
     </aside>
