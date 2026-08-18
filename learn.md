@@ -69,10 +69,11 @@ tests/                  pytest
 | --- | --- |
 | `xiangqi-train` / `python -m xiangqi_engine` / `python -m xiangqi_engine.loop` | `loop.main` |
 | `xiangqi-play` / `python -m xiangqi_engine.play` | `play.server.main` |
+| `xiangqi-plot` / `python -m xiangqi_engine.plot_logs` | `plot_logs.main`（读 jsonl 画曲线，不 import torch） |
 
 **不要在 `xiangqi_engine/__init__.py` 里 import torch。** 那个文件只 re-export C++ 引擎、Encoder、MCTS、UniformEvaluator。对弈 UI、只加载规则的脚本因此不必把 CUDA 运行时拉起来。网络在 `network.py` / `loop.py` / `selfplay` worker 里按需 import。
 
-构建：`setup.py` 用 pybind11 编 `xiangqi_engine._xiangqi`，源文件 `board.cpp` + `encode.cpp` + `bindings.cpp`，C++17，`-O3 -DNDEBUG`。`pyproject.toml` 核心依赖只有 numpy；`test` / `train` extra 才拉 pytest 和 torch。
+构建：`setup.py` 用 pybind11 编 `xiangqi_engine._xiangqi`，源文件 `board.cpp` + `encode.cpp` + `bindings.cpp`，C++17，`-O3 -DNDEBUG`。`pyproject.toml` 核心依赖只有 numpy；`test` extra 拉 pytest + torch；`train` extra 再加 matplotlib（画 `train.jsonl`）。
 
 Linux 上 `/usr/bin/c++` 经常是 clang++，链 `libstdc++` 会失败。训练机/CI 用：
 
@@ -496,6 +497,7 @@ L = w_p * CE(π, log_softmax(logits)) + w_v * MSE(v, z)
    - 到点则 eval，可能晋升
    - 一行 summary：selfplay 时分、红黑和、train loss、eval wr、是否 promoted、ETA
    - `logs/**/train.jsonl` 追加一行 JSON
+   - 用 `xiangqi-plot logs/gomoku/train.jsonl` 画损失 / 评估 / 自我对弈 / 晋升（不读 torch）
    - `save_every`：写 `iter_XXXX.pt` + replay、`latest.pt` + replay、`best.pt`（只含当前 best 的 `model` 键）
 
 checkpoint payload：
@@ -508,6 +510,14 @@ checkpoint payload：
 - `metrics` 该轮摘要
 
 MCTS 树**不**进 checkpoint。对弈/评估每步都是从当前根搜。
+
+`train.jsonl` 每轮一行，字段就是 `run_iteration` 返回的 dict：`iteration`、`games`、`samples`、`buffer`、`selfplay.{red,black,draw}`、`train.{loss,policy_loss,value_loss}`（buffer 不够时为 `null`）、`eval.{wins,losses,draws,win_rate}`（该轮没评估则没有这个键）、`promoted`、以及 `selfplay_sec` / `train_sec` / `eval_sec` / `sec`。resume 往同一文件追加；同一 `iteration` 出现两次时，画图脚本留最后一次。
+
+```bash
+xiangqi-plot logs/gomoku/train.jsonl
+```
+
+六张图：损失（左策略/总和，右价值；价值单独轴，否则 0.04 会被 5.2 压没）、评估 wr + W/L/D、自我对弈红/黑/和比例、平均手数 `samples/games`、回放池、墙钟。红色虚线和 ★ 是 `promoted=true`。不 import torch。
 
 自我对弈种子 `seed + iteration * 10007`，resume 后不会和已跑轮次撞车。
 

@@ -76,7 +76,15 @@ cmake --build build -j
 
 ## 训练
 
-同一套循环，换配置即换棋种。每一轮：用冻结的 **best** 自我对弈 → 样本进回放池 → 更新学习者 → 和 best 对打，胜率达到 `eval.win_rate_threshold` 才把学习者写进 best，下一轮才用新权重造棋。终端会打进度和 ETA；明细在对应的 `logs/**/train.jsonl`。
+同一套循环，换配置即换棋种。每一轮：用冻结的 **best** 自我对弈 → 样本进回放池 → 更新学习者 → 和 best 对打，胜率达到 `eval.win_rate_threshold` 才把学习者写进 best，下一轮才用新权重造棋。终端会打进度和 ETA；明细在对应的 `logs/**/train.jsonl`。把曲线画出来（损失、评估胜率、自我对弈红/黑/和、平均手数、回放池、耗时；红色虚线和 ★ 是晋升）：
+
+```bash
+xiangqi-plot logs/gomoku/train.jsonl          # 写出 logs/gomoku/train.png
+xiangqi-plot --config config/gomoku.json -o /tmp/gomoku.png
+python -m xiangqi_engine.plot_logs logs/train.jsonl
+```
+
+需要 matplotlib（`uv sync --extra train`，或 `uv pip install matplotlib`）。
 
 本机先冒烟（强制 CPU、小网络、少模拟，不需要 CUDA）：
 

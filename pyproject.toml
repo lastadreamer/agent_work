@@ -20,11 +20,13 @@ test = [
 train = [
     "pytest>=8.0",
     "torch>=2.2",
+    "matplotlib>=3.8",
 ]
 
 [project.scripts]
 xiangqi-train = "xiangqi_engine.loop:main"
 xiangqi-play = "xiangqi_engine.play.server:main"
+xiangqi-plot = "xiangqi_engine.plot_logs:main"
 
 [tool.setuptools.package-data]
 xiangqi_engine = ["play/static/*"]
