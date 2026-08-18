@@ -99,7 +99,7 @@ function render() {
       if (cell.rank === 5) sq.classList.add("river-n");
       if (cell.rank === 4) sq.classList.add("river-s");
       if (inPalace(cell.file, cell.rank)) sq.classList.add("palace");
-      if (!state.over && last && (cell.iccs === last.from || cell.iccs === last.to)) sq.classList.add("last");
+      if (last && (cell.iccs === last.from || cell.iccs === last.to)) sq.classList.add("last");
       if (selected === cell.iccs) sq.classList.add("selected");
       if (loser && cell.iccs === loser) sq.classList.add("loser");
       if (legal.includes(cell.iccs)) {

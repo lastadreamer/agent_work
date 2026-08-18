@@ -70,7 +70,7 @@ function render() {
       const el = document.createElement("div");
       el.className = "cell";
       if (legal.has(cell.iccs)) el.classList.add("legal");
-      if (!state.over && cell.iccs === last) el.classList.add("last");
+      if (cell.iccs === last) el.classList.add("last");
       if (winning.has(cell.iccs)) el.classList.add("win");
       if (cell.color) {
         const s = document.createElement("div");

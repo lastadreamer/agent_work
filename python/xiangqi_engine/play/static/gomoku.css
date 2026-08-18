@@ -83,7 +83,11 @@ main {
 }
 .cell.legal { cursor: pointer; }
 .cell.legal:hover { background: rgba(0, 0, 0, 0.08); }
-.cell.last .stone { outline: 2px solid #c0392b; outline-offset: 1px; }
+.cell.last .stone {
+  outline: 3px solid #fff;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 5px #ff2d78;
+}
 .panel {
   width: 100%;
   background: var(--panel);

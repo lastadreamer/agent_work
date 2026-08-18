@@ -74,8 +74,21 @@
   box-shadow: 0 0 0 4px var(--mark), 0 0 12px 2px var(--mark);
   z-index: 4;
 }
+.sq.last.loser {
+  background: rgba(0, 232, 255, 0.5) !important;
+  box-shadow:
+    inset 0 0 0 3px var(--mark-ink),
+    inset 0 0 0 7px var(--mark),
+    inset 0 0 0 11px #ff2d78;
+}
+.sq.last.loser .piece {
+  outline: 3px solid var(--mark-ink);
+  box-shadow: 0 0 0 4px var(--mark), 0 0 0 8px #ff2d78;
+}
+
 .cell.win.last .stone {
   outline: 3px solid var(--mark-ink);
+  box-shadow: 0 0 0 4px var(--mark), 0 0 0 8px #fff, 0 0 0 12px #ff2d78;
 }
 
 @keyframes result-banner-in {

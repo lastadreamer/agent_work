@@ -109,7 +109,13 @@ main {
 .sq.river-s:not(.file0):not(.file8)::before { top: 50%; height: 50%; }
 .sq.palace { background: rgba(92, 51, 23, 0.07); }
 .sq.selected { outline: 3px solid var(--hi); outline-offset: -3px; z-index: 1; }
-.sq.last { background: rgba(241, 196, 15, 0.28); }
+.sq.last {
+  background: rgba(255, 45, 120, 0.38);
+  box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 6px #ff2d78;
+}
+.sq.last .piece {
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px #ff2d78;
+}
 .sq.legal .mark {
   position: absolute;
   left: 50%; top: 50%;
