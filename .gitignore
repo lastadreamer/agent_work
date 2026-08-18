@@ -11,6 +11,11 @@ cmake-build-*/
 *.a
 .venv/
 venv/
-checkpoints/
 data/
 logs/
+
+# Local training dumps stay out of git. The published Gomoku best is tracked.
+checkpoints/*
+!checkpoints/gomoku/
+checkpoints/gomoku/*
+!checkpoints/gomoku/best.pt

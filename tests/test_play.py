@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import pytest
+
 from xiangqi_engine import START_FEN, load_config
 from xiangqi_engine.config import deepcopy_config
 from xiangqi_engine.play.server import static_relpath
@@ -180,3 +184,19 @@ def test_gomoku_state_shows_actual_checkpoint():
     assert st["checkpoint"] == "used.pt"
     assert st["play_defaults"]["checkpoint"] == "used.pt"
     assert st["play_defaults"]["simulations"] == 4
+
+
+def test_published_gomoku_best_loads():
+    torch = pytest.importorskip("torch")
+    from xiangqi_engine.loop import load_checkpoint
+    from xiangqi_engine.network import PolicyValueNet
+
+    path = Path("checkpoints/gomoku/best.pt")
+    assert path.is_file()
+    cfg = load_config("config/gomoku.json")
+    assert cfg["play"]["checkpoint"] == "checkpoints/gomoku/best.pt"
+    net = PolicyValueNet(cfg)
+    iteration = load_checkpoint(path, net)
+    assert iteration >= 1
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    assert (payload.get("config") or {}).get("game") == "gomoku"

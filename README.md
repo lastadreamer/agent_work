@@ -33,8 +33,8 @@
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone https://github.com/lastadreamer/agent_work.git
-cd agent_work
+git clone https://github.com/lastadreamer/ai-chess.git
+cd ai-chess
 ```
 
 **本机 / Mac**
@@ -45,7 +45,8 @@ uv sync --extra test
 
 uv run pytest -q
 uv run xiangqi-train --config config/smoke.json
-uv run xiangqi-play --checkpoint checkpoints/best.pt
+# 仓库自带目前最好的五子棋权重（约第 448 轮）
+uv run xiangqi-play --config config/gomoku.json
 ```
 
 **训练机**
@@ -114,6 +115,8 @@ Mac 上不要跑 `default.json` / `gomoku.json` 的正式规模。只跑指定�
 | `latest.pt` + `latest.replay.pkl` | 同上，始终指向最近一次保存 |
 | `best.pt` | 当前门控权重：自我对弈和对弈界面都用它 |
 
+仓库里跟了一份已经训好的五子棋门控权重：[`checkpoints/gomoku/best.pt`](checkpoints/gomoku/best.pt)（15×15，6×64，约第 448 轮）。克隆后直接对弈就会加载它。其它训练产物（`iter_*.pt`、回放、象棋快照）仍不进 git。
+
 中断后续训（`--iterations` 表示**再跑多少轮**）：
 
 ```bash
@@ -138,13 +141,13 @@ CUDA_VISIBLE_DEVICES=0,1 xiangqi-train
 ## 对弈
 
 ```bash
-# 象棋，默认 http://127.0.0.1:8765
+# 象棋，默认 http://127.0.0.1:8765（还没有入库的象棋权重，空路径 = 均匀 MCTS）
 python -m xiangqi_engine.play
 xiangqi-play --checkpoint checkpoints/best.pt --simulations 200
 
-# 五子棋，默认 http://127.0.0.1:8766
+# 五子棋，默认 http://127.0.0.1:8766，读取 checkpoints/gomoku/best.pt
 python -m xiangqi_engine.play --config config/gomoku.json
-xiangqi-play --config config/gomoku.json --checkpoint checkpoints/gomoku/best.pt
+xiangqi-play --config config/gomoku.json --simulations 200
 ```
 
 浏览器打开终端里打印的地址。棋盘按窗口缩放并居中。
@@ -228,10 +231,11 @@ legal, probs, value = infer(net, enc, Board())
 ## 目录
 
 ```
-config/                 default / smoke / gomoku / gomoku_smoke
-include/xiangqi/        象棋 C++ 头文件
-src/                    象棋规则、编码、pybind11、perft
-python/xiangqi_engine/  配置、网络、MCTS、训练、象棋/五子棋对弈 UI
+config/                      default / smoke / gomoku / gomoku_smoke
+checkpoints/gomoku/best.pt   入库的五子棋门控权重
+include/xiangqi/             象棋 C++ 头文件
+src/                         象棋规则、编码、pybind11、perft
+python/xiangqi_engine/       配置、网络、MCTS、训练、象棋/五子棋对弈 UI
 python/xiangqi_engine/gomoku/   五子棋棋盘与编码
 tests/
 ```
