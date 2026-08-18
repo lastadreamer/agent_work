@@ -1,4 +1,10 @@
-/* Shared game-over banner + board overlay. Included by Xiangqi and Gomoku. */
+/* Game-over lives in the status banner, not on top of the pieces.
+   Highlights use cyan against the warm wooden board (gold/red blends in). */
+
+:root {
+  --mark: #00e8ff;
+  --mark-ink: #031820;
+}
 
 .status[aria-live] {
   transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
@@ -41,82 +47,38 @@
   color: #f3e6d0;
 }
 
-.board-stage {
-  position: relative;
-}
-.result-overlay {
-  display: none;
-}
-.board-stage.over .result-overlay {
-  display: flex;
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(12, 8, 6, 0.12) 30%, rgba(12, 8, 6, 0.42) 100%);
-  animation: result-banner-in 0.35s ease-out;
-}
-.result-card {
-  text-align: center;
-  padding: 0.7em 1.35em 0.8em;
-  border-radius: 12px;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55);
-  min-width: 42%;
-}
-.result-card .outcome {
-  font-size: clamp(2rem, calc(var(--cell, 48px) * 1.15), 3.4rem);
-  font-weight: 800;
-  letter-spacing: 0.28em;
-  line-height: 1.15;
-  text-indent: 0.28em;
-}
-.result-card .reason {
-  margin-top: 0.35em;
-  font-size: clamp(0.95rem, calc(var(--cell, 48px) * 0.32), 1.25rem);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  opacity: 0.95;
-}
-.result-overlay.win-red .result-card {
-  background: #c0392b;
-  color: #fff8e7;
-}
-.result-overlay.win-white .result-card {
-  background: #f7efe0;
-  color: #2a221c;
-  border: 2px solid #8a6230;
-}
-.result-overlay.win-black .result-card {
-  background: #161616;
-  color: #f3e6d0;
-  border: 2px solid #d4b483;
-}
-.result-overlay.draw .result-card {
-  background: #6d5d4b;
-  color: #fff8e7;
+.board-stage.over .board {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 4px var(--mark-ink),
+    0 0 0 9px var(--mark);
 }
 
+.sq.loser {
+  background: rgba(0, 232, 255, 0.55) !important;
+  box-shadow: inset 0 0 0 3px var(--mark-ink), inset 0 0 0 7px var(--mark);
+}
 .sq.loser .piece {
-  outline: 4px solid #e74c3c;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px rgba(231, 76, 60, 0.35);
-  animation: loser-pulse 1.1s ease-in-out infinite;
+  outline: 3px solid var(--mark-ink);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--mark), 0 0 14px 2px var(--mark);
   z-index: 4;
 }
+
+.cell.win {
+  background: rgba(0, 232, 255, 0.5);
+}
 .cell.win .stone {
-  outline: 3px solid #f1c40f;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 5px rgba(241, 196, 15, 0.4);
+  outline: 3px solid var(--mark-ink);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px var(--mark), 0 0 12px 2px var(--mark);
   z-index: 4;
+}
+.cell.win.last .stone {
+  outline: 3px solid var(--mark-ink);
 }
 
 @keyframes result-banner-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes loser-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.25); }
-  50% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0.5); }
+  from { opacity: 0; transform: translateY(-0.25rem); }
+  to { opacity: 1; transform: none; }
 }
